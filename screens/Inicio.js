@@ -1,12 +1,5 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PresupuestosMensuales from './PresupuestosMensuales';
 import ScreenDeTransacciones from './ScreenDeTransacciones';
@@ -154,18 +147,15 @@ export default function Inicio() {
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="home" size={24} color="#4A8FE7" />
-          <Text style={styles.navText}>Inicio</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="calendar" size={24} color="#4A8FE7" />
-          <Text style={styles.navText}>Calendario</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.navItem}
           onPress={() => setMostrarPresupuesto(true)}
         >
           <Ionicons name="trending-up" size={24} color="#030213" />
-          <Text style={styles.navText}>Presupuesto</Text>
         </TouchableOpacity>
         
         {/* BOTÓN DE TRANSFERENCIAS EN LA BARRA INFERIOR */}
@@ -174,12 +164,10 @@ export default function Inicio() {
           onPress={irATransferencias}
         >
           <Ionicons name="card" size={24} color="#030213" />
-          <Text style={styles.navText}>Transacciones</Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="time" size={24} color="#030213" />
-          <Text style={styles.navText}>Historial</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
