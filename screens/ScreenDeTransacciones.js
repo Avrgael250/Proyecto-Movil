@@ -11,8 +11,8 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { transaccionesEjemplo, categorias } from './ejemploDatos';
-import ElementoTransaccion from './ElementoTransaccion';
+import { transaccionesEjemplo, categorias } from './DatosEjemplo';
+import ElementoTransaccion from './ElementoDeTransaccionScreen';
 
 const ScreenDeTransacciones = () => {
   // Estados principales

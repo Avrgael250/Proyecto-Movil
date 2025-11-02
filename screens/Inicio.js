@@ -9,14 +9,25 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PresupuestosMensuales from './PresupuestosMensuales';
+import ScreenDeTransacciones from './ScreenDeTransacciones';
 
 export default function Inicio() {
   const [mostrarPresupuesto, setMostrarPresupuesto] = useState(false);
+  const [mostrarTransacciones, setMostrarTransacciones] = useState(false);
 
-  // Si se presiona el botón "Este mes", mostrar Presupuestos Mensuales
+  // Si se presiona el botón de presupuesto, mostrar Presupuestos Mensuales
   if (mostrarPresupuesto) {
     return <PresupuestosMensuales />;
   }
+
+  // Si se presiona el botón de transferencias, mostrar Transacciones
+  if (mostrarTransacciones) {
+    return <ScreenDeTransacciones />;
+  }
+
+  const irATransferencias = () => {
+    setMostrarTransacciones(true);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -123,6 +134,15 @@ export default function Inicio() {
             <Text style={styles.proximoTexto}>¡Todo pagado!</Text>
           </View>
         </View>
+
+        {/* BOTÓN DE TRANSFERENCIAS ADICIONAL */}
+        <TouchableOpacity 
+          style={styles.botonTransferencias}
+          onPress={irATransferencias}
+        >
+          <Ionicons name="swap-horizontal" size={24} color="#FFFFFF" />
+          <Text style={styles.botonTransferenciasTexto}>💳 Mis Transacciones</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Botón Flotante (FAB) - No funcional */}
@@ -130,25 +150,36 @@ export default function Inicio() {
         <Ionicons name="add" size={28} color="#ffffff" />
       </TouchableOpacity>
 
-      {/* Barra de Navegación Inferior - No funcional */}
+      {/* Barra de Navegación Inferior - CON BOTÓN DE TRANSFERENCIAS */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="home" size={24} color="#4A8FE7" />
+          <Text style={styles.navText}>Inicio</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="calendar" size={24} color="#4A8FE7" />
+          <Text style={styles.navText}>Calendario</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.navItem}
           onPress={() => setMostrarPresupuesto(true)}
         >
           <Ionicons name="trending-up" size={24} color="#030213" />
+          <Text style={styles.navText}>Presupuesto</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        
+        {/* BOTÓN DE TRANSFERENCIAS EN LA BARRA INFERIOR */}
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={irATransferencias}
+        >
           <Ionicons name="card" size={24} color="#030213" />
+          <Text style={styles.navText}>Transacciones</Text>
         </TouchableOpacity>
+        
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="time" size={24} color="#030213" />
+          <Text style={styles.navText}>Historial</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -430,5 +461,32 @@ const styles = StyleSheet.create({
   },
   navItem: {
     padding: 8,
+    alignItems: 'center',
+  },
+  navText: {
+    fontSize: 10,
+    color: '#030213',
+    marginTop: 4,
+  },
+  // BOTÓN DE TRANSFERENCIAS NUEVO
+  botonTransferencias: {
+    backgroundColor: '#0EA5E9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 20,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  botonTransferenciasTexto: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });
