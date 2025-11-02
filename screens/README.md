@@ -1,17 +1,19 @@
-Pantallas de la app
-===================
+Paleta Principal (Esenciales)
 
-Este directorio esta reservado para las pantallas principales de la aplicacion.
+Colores de Marca
+Azul Principal: `#4A8FE7` - Color de marca (botones, iconos activos, elementos principales)
+Azul Hover: `#3A7FD7` - Estado interactivo de botones
 
-Convencion sugerida
--------------------
-- Usa un nombre de archivo por pantalla (por ejemplo, `HomeScreen.js`).
-- Agrupa componentes especificos de cada pantalla en subcarpetas si es necesario.
+Fondos
+Blanco: `#ffffff` - Fondo principal de la app
+Azul Fondo Claro: `#E3F2FD` - Fondos secundarios y elementos suaves
 
-Notas de colaboracion
----------------------
-- Antes de agregar o modificar contenido, sincroniza tus cambios con la rama principal para evitar conflictos.
-- Describe brevemente tu pantalla y su proposito en las pull requests para que el equipo entienda el contexto.
+Texto y Bordes
+Negro: `#030213` - Texto principal y bordes importantes
+Gris Medio: `#717182` - Texto secundario
+Gris Claro: `#d1d1d1` o `#e5e5e5` - Bordes sutiles (usar `border-gray-300` en Tailwind)
 
-Happy coding! :)
-
+Colores de Datos (Gráficos)
+Azul Gráfico: `#5DADE2`
+Amarillo Gráfico: `#F4D03F`
+Rojo/Coral Gráfico: `#EC7063`
