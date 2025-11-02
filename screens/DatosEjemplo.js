@@ -35,4 +35,4 @@ export const categoriasEjemplo = [
     {id:2, mobre: 'Comida', tipo: 'gasto', color: '#EF4444'},
     {id:3, mobre: 'Transporte', tipo: 'gasto', color: '#F59E0B'},  
     {id:4, mobre: 'Ocio', tipo: 'gasto', color: '#EC4899'},
-]        
+];        
