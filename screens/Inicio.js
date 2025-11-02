@@ -1,25 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import PresupuestosMensuales from './PresupuestosMensuales';
-import ScreenDeTransacciones from './ScreenDeTransacciones';
+import { useNavigation } from '@react-navigation/native';
 
 export default function Inicio() {
-  const [mostrarPresupuesto, setMostrarPresupuesto] = useState(false);
-  const [mostrarTransacciones, setMostrarTransacciones] = useState(false);
-
-  // Si se presiona el botón de presupuesto, mostrar Presupuestos Mensuales
-  if (mostrarPresupuesto) {
-    return <PresupuestosMensuales />;
-  }
-
-  // Si se presiona el botón de transferencias, mostrar Transacciones
-  if (mostrarTransacciones) {
-    return <ScreenDeTransacciones />;
-  }
+  const navigation = useNavigation();
 
   const irATransferencias = () => {
-    setMostrarTransacciones(true);
+    navigation.navigate('Tarjetas');
   };
 
   return (
@@ -143,33 +131,6 @@ export default function Inicio() {
         <Ionicons name="add" size={28} color="#ffffff" />
       </TouchableOpacity>
 
-      {/* Barra de Navegación Inferior - CON BOTÓN DE TRANSFERENCIAS */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home" size={24} color="#4A8FE7" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="calendar" size={24} color="#4A8FE7" />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => setMostrarPresupuesto(true)}
-        >
-          <Ionicons name="trending-up" size={24} color="#030213" />
-        </TouchableOpacity>
-        
-        {/* BOTÓN DE TRANSFERENCIAS EN LA BARRA INFERIOR */}
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={irATransferencias}
-        >
-          <Ionicons name="card" size={24} color="#030213" />
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="time" size={24} color="#030213" />
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
