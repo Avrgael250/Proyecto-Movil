@@ -1,13 +1,49 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, StatusBar, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import * as NavigationBar from 'expo-navigation-bar';
 
 export default function PresupuestosMensuales() {
-    const mesActual = 'Sep';
+    const navigation = useNavigation();
+    const isFocused = useIsFocused();
+    const mesActual = 'Nov';
     const anioActual = 2025;
 
+    useEffect(() => {
+        const hideSystemBars = async () => {
+            if (Platform.OS === 'android') {
+                await StatusBar.setTranslucent(true);
+                await NavigationBar.setVisibilityAsync('hidden');
+                await NavigationBar.setBehaviorAsync('overlay');
+                StatusBar.setHidden(true);
+            } else {
+                StatusBar.setHidden(true, 'fade');
+            }
+        };
+
+        const showSystemBars = async () => {
+            if (Platform.OS === 'android') {
+                await StatusBar.setTranslucent(false);
+                await NavigationBar.setVisibilityAsync('visible');
+                StatusBar.setHidden(false);
+            } else {
+                StatusBar.setHidden(false, 'fade');
+            }
+        };
+
+        if (isFocused) {
+            hideSystemBars();
+        }
+
+        return () => {
+            showSystemBars();
+        };
+    }, [isFocused]);
+    const [modalVisible, setModalVisible] = useState(false);
+
     return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* Header Superior - Barra gris con título */}
         <View style={styles.topBar}>
             <Text style={styles.topBarTitle}>Presupuesto</Text>
@@ -33,13 +69,130 @@ export default function PresupuestosMensuales() {
 
       {/* Área de Contenido Principal */}
         <ScrollView style={styles.contentArea} contentContainerStyle={styles.contentContainer}>
-            {/* Estado vacío */}
-        <View style={styles.emptyState}>
-            <View style={styles.emptyIconCircle}>
-                <Ionicons name="receipt-outline" size={48} color="#4A8FE7" />
+            {/* Círculo de progreso y monto restante */}
+            <View style={styles.budgetSummary}>
+                <View style={styles.progressRing}>
+                    <Text style={styles.percentageText}>38%</Text>
+                </View>
+                <View style={styles.remainingAmount}>
+                    <Text style={styles.remainingLabel}>Restante</Text>
+                    <Text style={styles.remainingValue}>$3,100.00</Text>
+                    <Text style={styles.spentText}>Gastado $1,900 de <Text style={styles.totalBudget}>$5,000</Text></Text>
+                </View>
             </View>
-            <Text style={styles.emptyText}>Sin entradas aún</Text>
-        </View>
+
+            {/* Categorías de presupuesto */}
+            <View style={styles.categories}>
+                <TouchableOpacity 
+                    style={styles.categoryItem}
+                    onPress={() => setModalVisible(true)}
+                >
+                    <View style={[styles.categoryIcon, { backgroundColor: '#E3F2FD' }]}>
+                        <Ionicons name="cart" size={24} color="#2196F3" />
+                    </View>
+                    <View style={styles.categoryInfo}>
+                        <View style={styles.categoryHeader}>
+                            <Text style={styles.categoryName}>Supermercado</Text>
+                            <Text style={styles.categoryAmount}>$850</Text>
+                        </View>
+                        <View style={styles.categoryProgress}>
+                            <View style={[styles.progressBar, { backgroundColor: '#2196F3', width: '42.5%' }]} />
+                        </View>
+                        <Text style={styles.transactionCount}>4 transacciones</Text>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    style={styles.categoryItem}
+                    onPress={() => setModalVisible(true)}
+                >
+                    <View style={[styles.categoryIcon, { backgroundColor: '#FFF3E0' }]}>
+                        <Ionicons name="car" size={24} color="#FF9800" />
+                    </View>
+                    <View style={styles.categoryInfo}>
+                        <View style={styles.categoryHeader}>
+                            <Text style={styles.categoryName}>Transporte</Text>
+                            <Text style={styles.categoryAmount}>$600</Text>
+                        </View>
+                        <View style={styles.categoryProgress}>
+                            <View style={[styles.progressBar, { backgroundColor: '#FF9800', width: '30%' }]} />
+                        </View>
+                        <Text style={styles.transactionCount}>8 transacciones</Text>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    style={styles.categoryItem}
+                    onPress={() => setModalVisible(true)}
+                >
+                    <View style={[styles.categoryIcon, { backgroundColor: '#F3E5F5' }]}>
+                        <Ionicons name="phone-portrait" size={24} color="#9C27B0" />
+                    </View>
+                    <View style={styles.categoryInfo}>
+                        <View style={styles.categoryHeader}>
+                            <Text style={styles.categoryName}>Servicios</Text>
+                            <Text style={styles.categoryAmount}>$450</Text>
+                        </View>
+                        <View style={styles.categoryProgress}>
+                            <View style={[styles.progressBar, { backgroundColor: '#9C27B0', width: '22.5%' }]} />
+                        </View>
+                        <Text style={styles.transactionCount}>3 transacciones</Text>
+                    </View>
+                </TouchableOpacity>
+            </View>
+
+            {/* Modal de Editar Gasto */}
+            <Modal
+                visible={modalVisible}
+                animationType="slide"
+                statusBarTranslucent
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <TouchableOpacity 
+                            style={styles.backButton}
+                            onPress={() => setModalVisible(false)}
+                        >
+                            <Ionicons name="chevron-back" size={28} color="#000" />
+                        </TouchableOpacity>
+                        <Text style={styles.modalTitle}>Editar Gasto</Text>
+                        <TouchableOpacity>
+                            <Ionicons name="trash-outline" size={24} color="#000" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView style={styles.modalContent}>
+                        <Text style={styles.modalLabel}>Monto</Text>
+                        <Text style={styles.modalMonto}>$300.00</Text>
+                        <View style={styles.pagadoContainer}>
+                            <Ionicons name="checkmark" size={20} color="#4CAF50" />
+                            <Text style={styles.pagadoText}>PAGADO</Text>
+                        </View>
+
+                        <Text style={styles.modalLabel}>Descripción</Text>
+                        <Text style={styles.modalValue}>Sí</Text>
+
+                        <Text style={styles.modalLabel}>Fecha de Transacción</Text>
+                        <Text style={styles.modalValue}>2 nov 2025</Text>
+
+                        <Text style={styles.modalLabel}>Fecha de pago</Text>
+                        <Text style={styles.modalValue}>2 nov 2025</Text>
+
+                        <Text style={styles.modalLabel}>Cuenta</Text>
+                        <Text style={styles.modalValue}>Efectivo</Text>
+
+                        <Text style={styles.modalLabel}>Categoría</Text>
+                        <Text style={styles.modalValue}>Familia</Text>
+
+                        <Text style={styles.modalLabel}>Notas</Text>
+                        <View style={styles.notasContainer} />
+
+                        <TouchableOpacity style={styles.deshacerButton}>
+                            <Text style={styles.deshacerText}>Deshacer Pago</Text>
+                        </TouchableOpacity>
+                    </ScrollView>
+                </View>
+            </Modal>
         </ScrollView>
 
       {/* Botón Flotante (FAB) */}
@@ -47,41 +200,7 @@ export default function PresupuestosMensuales() {
             <Ionicons name="add" size={28} color="#ffffff" />
         </TouchableOpacity>
 
-      {/* Barra de Navegación Inferior */}
-        <View style={styles.bottomNav}>
-            <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="home" size={24} color="#4A8FE7" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="calendar" size={24} color="#4A8FE7" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="trending-up" size={24} color="#030213" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.navItem}>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="card" size={24} color="#030213" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="trending-up" size={24} color="#030213" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="card" size={24} color="#030213" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="time" size={24} color="#030213" />
-            </TouchableOpacity>
-
-        </View>
-    </SafeAreaView>
+    </View>
     );
 }
 
@@ -89,6 +208,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#ffffff',
+        paddingTop: 0,
     },
   // Top Bar - Barra gris superior
     topBar: {
@@ -151,31 +271,110 @@ const styles = StyleSheet.create({
     contentContainer: {
         flexGrow: 1,
     },
-    emptyState: {
-        flex: 1,
-        justifyContent: 'center',
+    budgetSummary: {
+        padding: 20,
+        flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 120,
+        backgroundColor: '#ffffff',
     },
-    emptyIconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#E3F2FD',
+    progressRing: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        borderWidth: 12,
+        borderColor: '#E3F2FD',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
-        },
-        emptyText: {
+        marginRight: 20,
+    },
+    percentageText: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#030213',
+    },
+    remainingAmount: {
+        flex: 1,
+    },
+    remainingLabel: {
         fontSize: 16,
         color: '#717182',
-        fontWeight: '400',
+        marginBottom: 4,
+    },
+    remainingValue: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: '#030213',
+        marginBottom: 4,
+    },
+    spentText: {
+        fontSize: 14,
+        color: '#717182',
+    },
+    totalBudget: {
+        color: '#4A8FE7',
+    },
+    categories: {
+        paddingHorizontal: 20,
+    },
+    categoryItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#ffffff',
+        borderRadius: 12,
+        marginBottom: 16,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    categoryIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    categoryInfo: {
+        flex: 1,
+    },
+    categoryHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    categoryName: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#030213',
+    },
+    categoryAmount: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#030213',
+    },
+    categoryProgress: {
+        height: 4,
+        backgroundColor: '#E3F2FD',
+        borderRadius: 2,
+        marginBottom: 8,
+    },
+    progressBar: {
+        height: '100%',
+        borderRadius: 2,
+    },
+    transactionCount: {
+        fontSize: 12,
+        color: '#717182',
     },
   // Botón Flotante (FAB)
     fab: {
         position: 'absolute',
         right: 20,
-        bottom: 90,
+        bottom: 20,
         width: 56,
         height: 56,
         borderRadius: 12,
@@ -187,6 +386,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 8,
+        zIndex: 1,
     },
   // Barra de Navegación Inferior
     bottomNav: {
@@ -201,6 +401,77 @@ const styles = StyleSheet.create({
     },
     navItem: {
         padding: 8,
+    },
+    // Estilos del Modal
+    modalContainer: {
+        flex: 1,
+        backgroundColor: '#fff',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e5e5',
+    },
+    backButton: {
+        padding: 4,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    modalContent: {
+        flex: 1,
+        padding: 16,
+    },
+    modalLabel: {
+        fontSize: 16,
+        color: '#666',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    modalMonto: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        marginBottom: 8,
+    },
+    pagadoContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    pagadoText: {
+        color: '#4CAF50',
+        marginLeft: 4,
+        fontWeight: '500',
+    },
+    modalValue: {
+        fontSize: 16,
+        color: '#000',
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e5e5',
+    },
+    notasContainer: {
+        height: 100,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 8,
+        marginTop: 8,
+    },
+    deshacerButton: {
+        backgroundColor: '#E3F2FD',
+        padding: 16,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 24,
+        marginBottom: 32,
+    },
+    deshacerText: {
+        color: '#2196F3',
+        fontSize: 16,
+        fontWeight: '600',
     },
 });
 

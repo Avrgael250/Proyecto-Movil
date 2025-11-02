@@ -44,7 +44,7 @@ export default function Inicio() {
         style={styles.content} 
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
-      >
+        >
         {/* Card: Disponible para gastar */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Disponible para gastar</Text>
