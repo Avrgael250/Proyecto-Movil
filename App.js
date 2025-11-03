@@ -15,7 +15,7 @@ LogBox.ignoreLogs([
 // Importar las pantallas
 import Home from './screens/Inicio';
 import PresupuestosMensuales from './screens/PresupuestosMensuales';
-import Calendario from './screens/Calendario';
+import Calendario from './screens/GraficasScreen';
 import TransaccionesScreen from './screens/ElementoDeTransaccionScreen';
 import Historial from './screens/Historial';
 
@@ -70,7 +70,7 @@ export default function App() {
           <Tab.Screen 
             name="Calendario" 
             component={Calendario}
-            options={{ tabBarLabel: 'Calendario' }}
+            options={{ tabBarLabel: 'Graficas' }}
           />
           <Tab.Screen 
             name="Transacciones" 
