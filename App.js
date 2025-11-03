@@ -16,7 +16,7 @@ LogBox.ignoreLogs([
 import Home from './screens/Inicio';
 import PresupuestosMensuales from './screens/PresupuestosMensuales';
 import Calendario from './screens/Calendario';
-import TransaccionesScreen from './screens/ElementoDeTransaccionScreen';
+import ScreenDeTransacciones from './screens/ScreenDeTransacciones';
 import Historial from './screens/Historial';
 
 const Tab = createBottomTabNavigator();
@@ -74,7 +74,7 @@ export default function App() {
           />
           <Tab.Screen 
             name="Transacciones" 
-            component={TransaccionesScreen}
+            component={ScreenDeTransacciones}
             options={{ tabBarLabel: 'Transacciones' }}
           />
           <Tab.Screen 
