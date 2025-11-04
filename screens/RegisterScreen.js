@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Switch, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 export default function RegisterScreen() {
@@ -7,28 +7,53 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmar, setConfirmar] = useState('');
+  const [aceptarCondiciones, setAceptarCondiciones] = useState(false);
 
+  // validacion de correo para que tenga @ y un dominio 
   const validarEmail = (correo) => {
-    const regex = /^[\w.%+-]+@[\w.-]+\.[a-zA-Z]{2,}$/;
-    return regex.test(correo);
+    const dominiosValidos = ['gmail.com', 'yahoo.com', 'hotmail.com', 'icloud.com', 'outlook.com', 'yamail.com'];
+    if (!correo.includes('@')) return false;
+    const partes = correo.split('@');
+    if (partes.length !== 2) return false;
+    const dominio = partes[1].toLowerCase();
+    return dominiosValidos.includes(dominio);
+  };
+
+  const mostrarAlerta = (titulo, mensaje) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${titulo}: ${mensaje}`);
+    } else {
+      Alert.alert(titulo, mensaje);
+    }
   };
 
   const manejarRegistro = () => {
-    if (!email || !password || !confirmar) {
-      Alert.alert('Campos incompletos', 'Por favor, llena todos los campos.');
-      return;
-    }
-    if (!validarEmail(email)) {
-      Alert.alert('Correo inválido', 'Por favor, ingresa un correo electrónico válido (ej: ejemplo@gmail.com).');
-      return;
-    }
-    if (password !== confirmar) {
-      Alert.alert('Error', 'Las contraseñas no coinciden.');
+    // campos sin llenar
+    if (!email.trim() || !password.trim() || !confirmar.trim()) {
+      mostrarAlerta('ERROR', 'Por favor llena todos los campos');
       return;
     }
 
-    Alert.alert('Registro exitoso', 'Tu cuenta ha sido creada correctamente.');
-    navigation.navigate('Login');
+    // correo no valido
+    if (!validarEmail(email)) {
+      mostrarAlerta('ERROR', 'Correo no válido. Asegúrate de incluir un dominio correcto');
+      return;
+    }
+
+    // contraseñas no iguales
+    if (password !== confirmar) {
+      mostrarAlerta('ERROR', 'Las contraseñas no coinciden');
+      return;
+    }
+
+    // aceptar terminos
+    if (!aceptarCondiciones) {
+      mostrarAlerta('ERROR', 'Necesitas aceptar los términos y condiciones para continuar');
+      return;
+    }
+
+    // registro completo
+    mostrarAlerta('Bienvenido', 'Tu cuenta ha sido creada correctamente.\nYa puedes ingresar');
   };
 
   return (
@@ -61,6 +86,17 @@ export default function RegisterScreen() {
         value={confirmar}
         onChangeText={setConfirmar}
       />
+
+      {/* Switch */}
+      <View style={styles.switchContainer}>
+        <Switch
+          value={aceptarCondiciones}
+          onValueChange={setAceptarCondiciones}
+          thumbColor={aceptarCondiciones ? '#4A8FE7' : '#ccc'}
+          trackColor={{ false: '#ddd', true: '#A7C7F2' }}
+        />
+        <Text style={styles.switchText}>Aceptar términos y condiciones</Text>
+      </View>
 
       <TouchableOpacity style={styles.button} onPress={manejarRegistro}>
         <Text style={styles.buttonText}>Registrar</Text>
@@ -115,4 +151,16 @@ const styles = StyleSheet.create({
     color: '#4A8FE7',
     fontWeight: '500',
   },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    width: '90%',
+  },
+  switchText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#030213',
+  },
 });
+

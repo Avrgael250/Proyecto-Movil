@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 export default function LoginScreen() {
@@ -7,24 +7,39 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  // Validar correo con @ y dominio (.com, .net, etc.)
   const validarEmail = (correo) => {
-    // Validar correo electrónico 
-    const regex = /^[\w.%+-]+@[\w.-]+\.[a-zA-Z]{2,}$/;
-    return regex.test(correo);
+    const regex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+    return regex.test(correo.trim());
   };
 
   const manejarLogin = () => {
-    if (!email || !password) {
-      Alert.alert('Campos incompletos', 'Por favor, llena todos los campos.');
-      return;
-    }
-    if (!validarEmail(email)) {
-      Alert.alert('Correo inválido', 'Por favor, ingresa un correo electrónico válido (ej: ejemplo@gmail.com).');
+    // Si los campos están vacíos
+    if (email.trim() === '' || password.trim() === '') {
+      if (Platform.OS === 'web') {
+        window.alert('ERROR: llena todos los campos antes de continuar');
+      } else {
+        Alert.alert('ERROR', 'Llena todos los campos antes de continuar');
+      }
       return;
     }
 
-    
-    navigation.navigate('Inicio');
+    // Si el correo no tiene @ o dominio
+    if (!validarEmail(email)) {
+      if (Platform.OS === 'web') {
+        window.alert('ERROR: el correo está mal escrito.\nDebe contener "@" y un dominio válido (ejemplo@gmail.com)');
+      } else {
+        Alert.alert('ERROR', 'El correo está mal escrito.\nDebe contener "@" y un dominio válido (ejemplo@gmail.com)');
+      }
+      return;
+    }
+
+    // Si todo es correcto
+    if (Platform.OS === 'web') {
+      window.alert('BIENVENIDO ' + email);
+    } else {
+      Alert.alert('BIENVENIDO', email);
+    }
   };
 
   return (
@@ -36,6 +51,7 @@ export default function LoginScreen() {
         placeholder="Correo electrónico"
         placeholderTextColor="#999"
         keyboardType="email-address"
+        autoCapitalize="none"
         value={email}
         onChangeText={setEmail}
       />
