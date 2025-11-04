@@ -8,7 +8,7 @@ import Home from '../screens/Inicio';
 import PresupuestosMensuales from '../screens/PresupuestosMensuales';
 import Calendario from '../screens/Calendario';
 import Tarjetas from '../screens/Tarjetas';
-import Historial from '../screens/Historial';
+import Cuentas from '../screens/Cuentas';
 import ScreenDeTransacciones from '../screens/ScreenDeTransacciones';
 
 const Tab = createBottomTabNavigator();
@@ -25,13 +25,13 @@ export default function Navigation() {
                         if (route.name === 'Home') {
                             iconName = focused ? 'home' : 'home-outline';
                         } else if (route.name === 'PresupuestosMensuales') {
-                            iconName = focused ? 'wallet' : 'wallet-outline';
+                            iconName = focused ? 'pie-chart' : 'pie-chart-outline';
                         } else if (route.name === 'Calendario') {
                             iconName = focused ? 'calendar' : 'calendar-outline';
                         } else if (route.name === 'Tarjetas') {
                             iconName = focused ? 'card' : 'card-outline';
-                        } else if (route.name === 'Historial') {
-                            iconName = focused ? 'time' : 'time-outline';
+                        } else if (route.name === 'Cuentas') {
+                            iconName = focused ? 'wallet' : 'wallet-outline';
                         } else if (route.name === 'Transacciones') {
                             iconName = focused ? 'swap-horizontal' : 'swap-horizontal-outline';
                         }
@@ -63,9 +63,9 @@ export default function Navigation() {
                     options={{ tabBarLabel: 'Tarjetas' }}
                 />
                 <Tab.Screen 
-                    name="Historial" 
-                    component={Historial}
-                    options={{ tabBarLabel: 'Historial' }}
+                    name="Cuentas" 
+                    component={Cuentas}
+                    options={{ tabBarLabel: 'Cuentas' }}
                 />
                 <Tab.Screen 
                     name="Transacciones" 

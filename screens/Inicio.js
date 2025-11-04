@@ -1,10 +1,43 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import * as NavigationBar from 'expo-navigation-bar';
 
 export default function Inicio() {
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    const hideSystemBars = async () => {
+      if (Platform.OS === 'android') {
+        await StatusBar.setTranslucent(true);
+        await NavigationBar.setVisibilityAsync('hidden');
+        await NavigationBar.setBehaviorAsync('overlay');
+        StatusBar.setHidden(true);
+      } else {
+        StatusBar.setHidden(true, 'fade');
+      }
+    };
+
+    const showSystemBars = async () => {
+      if (Platform.OS === 'android') {
+        await StatusBar.setTranslucent(false);
+        await NavigationBar.setVisibilityAsync('visible');
+        StatusBar.setHidden(false);
+      } else {
+        StatusBar.setHidden(false, 'fade');
+      }
+    };
+
+    if (isFocused) {
+      hideSystemBars();
+    }
+
+    return () => {
+      showSystemBars();
+    };
+  }, [isFocused]);
 
   const irATransferencias = () => {
     navigation.navigate('Tarjetas');
@@ -384,7 +417,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 90,
+    bottom: 20,
     width: 56,
     height: 56,
     borderRadius: 12,
