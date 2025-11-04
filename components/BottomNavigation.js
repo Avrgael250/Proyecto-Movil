@@ -28,16 +28,7 @@ export default function BottomNavigation({ activeScreen }) {
                     color={activeScreen === 'PresupuestosMensuales' ? '#4A8FE7' : '#030213'} 
                 />
             </TouchableOpacity>
-            <TouchableOpacity 
-                style={styles.navItem}
-                onPress={() => navigation.navigate('Calendario')}
-            >
-                <Ionicons 
-                    name="calendar-outline" 
-                    size={24} 
-                    color={activeScreen === 'Calendario' ? '#4A8FE7' : '#030213'} 
-                />
-            </TouchableOpacity>
+
             <TouchableOpacity 
                 style={styles.navItem}
                 onPress={() => navigation.navigate('Transacciones')}
