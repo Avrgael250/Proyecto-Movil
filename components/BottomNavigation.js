@@ -23,7 +23,7 @@ export default function BottomNavigation({ activeScreen }) {
                 onPress={() => navigation.navigate('PresupuestosMensuales')}
             >
                 <Ionicons 
-                    name="pie-chart-outline" 
+                    name="stats-chart-outline" 
                     size={24} 
                     color={activeScreen === 'PresupuestosMensuales' ? '#4A8FE7' : '#030213'} 
                 />
