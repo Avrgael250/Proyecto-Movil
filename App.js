@@ -37,7 +37,7 @@ export default function App() {
               if (route.name === 'Home') {
                 iconName = focused ? 'home' : 'home-outline';
               } else if (route.name === 'PresupuestosMensuales') {
-                iconName = focused ? 'wallet' : 'wallet-outline';
+                iconName = focused ? 'stats-chart' : 'stats-chart-outline';
               } else if (route.name === 'Graficas') {
                 iconName = focused ? 'pie-chart' : 'pie-chart-outline';
               } else if (route.name === 'Transacciones') {
