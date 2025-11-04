@@ -23,7 +23,7 @@ export default function BottomNavigation({ activeScreen }) {
                 onPress={() => navigation.navigate('PresupuestosMensuales')}
             >
                 <Ionicons 
-                    name="wallet-outline" 
+                    name="pie-chart-outline" 
                     size={24} 
                     color={activeScreen === 'PresupuestosMensuales' ? '#4A8FE7' : '#030213'} 
                 />
@@ -50,12 +50,12 @@ export default function BottomNavigation({ activeScreen }) {
             </TouchableOpacity>
             <TouchableOpacity 
                 style={styles.navItem}
-                onPress={() => navigation.navigate('Historial')}
+                onPress={() => navigation.navigate('Cuentas')}
             >
                 <Ionicons 
-                    name="time-outline" 
+                    name="wallet-outline" 
                     size={24} 
-                    color={activeScreen === 'Historial' ? '#4A8FE7' : '#030213'} 
+                    color={activeScreen === 'Cuentas' ? '#4A8FE7' : '#030213'} 
                 />
             </TouchableOpacity>
         </View>

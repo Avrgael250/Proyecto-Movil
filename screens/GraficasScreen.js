@@ -1,19 +1,24 @@
+// Zona de importaciones
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 
-const screenWidth = Dimensions.get('window').width;
+// Para que se ajuste en el celular 
+const screenWidth = Dimensions.get('window').width; 
 
-const meses = [
+// Datos meses opciones
+const meses = [ 
     'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
     'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
 ];
 
+// Datos fijos (ejemplo grafica barras)
 const dataFija = {
     mes: 'Enero', 
     ingresos: 500, 
     egresos: 240, 
 };
 
+// Datos fijos (ejemplo graficas pastel)
 const categoriasData = [
     { name: 'Comida', percentage: '40%', color: '#5DADE2' }, 
     { name: 'Transporte', percentage: '28%', color: '#EC7063' }, 
@@ -21,9 +26,10 @@ const categoriasData = [
     { name: 'Otros', percentage: '10%', color: '#4A8FE7' }, 
 ];
 
+// Opcion de los meses
 const MonthSelector = () => (
     <ScrollView 
-        horizontal 
+        horizontal // Para ver los meses de forma horizontal
         showsHorizontalScrollIndicator={false} 
         contentContainerStyle={styles.selectorMes}
     >
@@ -46,7 +52,9 @@ const MonthSelector = () => (
     </ScrollView>
 );
 
+// Grafica de barras
 const GraficoBarrasMensual = ({ mesData }) => {
+    // Tamaño maximo de las barras
     const maxBarHeight = 150;
     const maxValGlobal = 600; 
 
@@ -56,6 +64,18 @@ const GraficoBarrasMensual = ({ mesData }) => {
     return (
         <View style={[styles.containerMes, { marginBottom: 10 }]}>
             <Text style={styles.tituloMes}>Ingresos y Egresos por Mes</Text>
+            {/* Leyenda de ingresos y egresos */}
+            <View style={styles.leyendaBarras}>
+                <View style={styles.itemLeyenda}>
+                    <View style={[styles.indicadorColorLeyenda, styles.colorIngresosBarra]} />
+                    <Text style={styles.textoLeyenda}>Ingresos</Text>
+                </View>
+                <View style={styles.itemLeyenda}>
+                    <View style={[styles.indicadorColorLeyenda, styles.colorEgresosBarra]} />
+                    <Text style={styles.textoLeyenda}>Egresos</Text>
+                </View>
+            </View>
+            {/* Estilos de la barras */}
             <View style={styles.contenedorGraficoBarras}>
                 <View style={styles.contenedorBarrasCentrado}>
                     <View style={styles.espacioBarras}>
@@ -72,6 +92,7 @@ const GraficoBarrasMensual = ({ mesData }) => {
     );
 };
 
+// Grafica circular
 const GraficoCategoriaMensual = ({ title, selectedMonth, data }) => {
     const [color1, color2, color3, color4] = data.map(d => d.color);
 
@@ -81,7 +102,7 @@ const GraficoCategoriaMensual = ({ title, selectedMonth, data }) => {
             <View style={styles.encabezadoCategoria}>
                 <View style={styles.botonOpcionMes}>
                     <Text style={{ fontWeight: 'bold', fontSize: 14 }}>{selectedMonth} 2025</Text>
-                    <Text style={{ fontSize: 14, color: '#717182' }}> 🔽</Text>
+                    <Text style={{ fontSize: 14, color: '#717182' }}> ▼ </Text>
                 </View>
             </View>
             
@@ -143,6 +164,7 @@ export default function ReportesScreen() {
     );
 }
 
+// Zona estilos
 const styles = StyleSheet.create({
     contenedorPrincipal: {
         flex: 1,
@@ -164,7 +186,7 @@ const styles = StyleSheet.create({
     },
     // Contenedores
     containerCategoria: { 
-        width: 1000,
+        width: screenWidth - 20,
         backgroundColor: '#ffffff',
         borderRadius: 10,
         padding: 15,
@@ -176,7 +198,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     containerMes: { 
-        width: 1000,
+        width: screenWidth - 20,
         backgroundColor: '#ffffff',
         borderRadius: 10,
         padding: 15,
@@ -262,6 +284,38 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#717182',
         marginTop: 8,
+    },
+    leyendaBarras: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20, 
+        marginTop: 5,
+    },
+    colorIngresosBarra: {
+        backgroundColor: '#FF5C6C',
+    },
+    colorEgresosBarra: {
+        backgroundColor: '#5DADE2',
+    },
+    // Cada par (círculo + texto)
+    itemLeyenda: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 15, 
+    },
+    // El círculo de color
+    indicadorColorLeyenda: {
+        width: 14, 
+        height: 14,
+        borderRadius: 7, 
+        marginRight: 8,
+    },
+    // Texto de ingresos y egresos
+    textoLeyenda: {
+        fontSize: 16,
+        color: '#333', 
+        fontWeight: '500', 
     },
     // Por categoria
     encabezadoCategoria: {
