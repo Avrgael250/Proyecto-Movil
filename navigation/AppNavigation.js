@@ -6,7 +6,6 @@ import { Ionicons } from '@expo/vector-icons';
 // Importar las pantallas
 import Home from '../screens/Inicio';
 import PresupuestosMensuales from '../screens/PresupuestosMensuales';
-import Calendario from '../screens/Calendario';
 import Tarjetas from '../screens/Tarjetas';
 import Cuentas from '../screens/Cuentas';
 import ScreenDeTransacciones from '../screens/ScreenDeTransacciones';
@@ -26,8 +25,6 @@ export default function Navigation() {
                             iconName = focused ? 'home' : 'home-outline';
                         } else if (route.name === 'PresupuestosMensuales') {
                             iconName = focused ? 'pie-chart' : 'pie-chart-outline';
-                        } else if (route.name === 'Calendario') {
-                            iconName = focused ? 'calendar' : 'calendar-outline';
                         } else if (route.name === 'Tarjetas') {
                             iconName = focused ? 'card' : 'card-outline';
                         } else if (route.name === 'Cuentas') {
@@ -51,11 +48,6 @@ export default function Navigation() {
                     name="PresupuestosMensuales" 
                     component={PresupuestosMensuales}
                     options={{ tabBarLabel: 'Presupuestos' }}
-                />
-                <Tab.Screen 
-                    name="Calendario" 
-                    component={Calendario}
-                    options={{ tabBarLabel: 'Calendario' }}
                 />
                 <Tab.Screen 
                     name="Tarjetas" 

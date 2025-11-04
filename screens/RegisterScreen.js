@@ -102,9 +102,9 @@ export default function RegisterScreen() {
         <Text style={styles.buttonText}>Registrar</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+      <TouchableOpacity activeOpacity={1}>
         <Text style={styles.linkText}>¿Ya tienes cuenta? Inicia sesión</Text>
-      </TouchableOpacity>
+        </TouchableOpacity>
     </SafeAreaView>
   );
 }
