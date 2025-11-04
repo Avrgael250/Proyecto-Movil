@@ -18,7 +18,7 @@ import RegisterScreen from './screens/RegisterScreen';
 import Home from './screens/Inicio';
 import PresupuestosMensuales from './screens/PresupuestosMensuales';
 import Graficas from './screens/GraficasScreen';
-import TransaccionesScreen from './screens/ElementoDeTransaccionScreen';
+import ScreenDeTransacciones from './screens/ScreenDeTransacciones';
 import Cuentas from './screens/Cuentas';
 import Calendario from './screens/Calendario';
 
@@ -93,7 +93,7 @@ export default function App() {
           />
           <Tab.Screen 
             name="Transacciones" 
-            component={TransaccionesScreen}
+            component={ScreenDeTransacciones}
             options={{ tabBarLabel: 'Transacciones' }}
           />
           <Tab.Screen 
