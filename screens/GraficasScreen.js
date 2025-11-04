@@ -19,13 +19,11 @@ const dataFija = {
 };
 
 // Datos fijos (ejemplo graficas pastel)
-// NOTA IMPORTANTE: Los colores AHORA se referencian por CLAVE (key) en lugar de valor hex.
-// El valor hex se define abajo en styles.COLORES_CATEGORIAS.
 const categoriasData = [
-    { name: 'Comida', percentage: '40%', colorKey: 'comida' }, 
-    { name: 'Transporte', percentage: '28%', colorKey: 'transporte' }, 
-    { name: 'Servicios', percentage: '22%', colorKey: 'servicios' }, 
-    { name: 'Otros', percentage: '10%', colorKey: 'otros' }, 
+    { name: 'Comida', percentage: '40%', color: '#5DADE2' }, 
+    { name: 'Transporte', percentage: '28%', color: '#EC7063' }, 
+    { name: 'Servicios', percentage: '22%', color: '#F4D03F' }, 
+    { name: 'Otros', percentage: '10%', color: '#4A8FE7' }, 
 ];
 
 // Opcion de los meses
@@ -63,11 +61,6 @@ const GraficoBarrasMensual = ({ mesData }) => {
     const ingresosHeight = (mesData.ingresos / maxValGlobal) * maxBarHeight;
     const egresosHeight = (mesData.egresos / maxValGlobal) * maxBarHeight;
 
-    // Accedemos a los colores de las barras a través del styles para que no estén 'hardcodeados'
-    const colorIngresos = styles.colorIngresosBarra.backgroundColor;
-    const colorEgresos = styles.colorEgresosBarra.backgroundColor;
-
-
     return (
         <View style={[styles.containerMes, { marginBottom: 10 }]}>
             <Text style={styles.tituloMes}>Ingresos y Egresos por Mes</Text>
@@ -86,10 +79,10 @@ const GraficoBarrasMensual = ({ mesData }) => {
             <View style={styles.contenedorGraficoBarras}>
                 <View style={styles.contenedorBarrasCentrado}>
                     <View style={styles.espacioBarras}>
-                        <View style={[styles.tamanoBarras, { height: ingresosHeight, backgroundColor: colorIngresos }]} />
+                        <View style={[styles.tamanoBarras, { height: ingresosHeight, backgroundColor: '#EC7063' }]} />
                     </View>
                     <View style={styles.espacioBarras}>
-                        <View style={[styles.tamanoBarras, { height: egresosHeight, backgroundColor: colorEgresos, marginLeft: 5 }]} />
+                        <View style={[styles.tamanoBarras, { height: egresosHeight, backgroundColor: '#5DADE2', marginLeft: 5 }]} />
                     </View>
                 </View>
                 <View style={styles.lineaGrafica} />
@@ -101,18 +94,15 @@ const GraficoBarrasMensual = ({ mesData }) => {
 
 // Grafica circular
 const GraficoCategoriaMensual = ({ title, selectedMonth, data }) => {
-    // MODIFICACIÓN: Extraemos los colores usando la 'colorKey' y el objeto de estilos
-    // Esto asegura que el color hexadecimal venga de la zona de estilos
-    const [color1, color2, color3, color4] = data.map(d => styles.COLORES_CATEGORIAS[d.colorKey]);
+    const [color1, color2, color3, color4] = data.map(d => d.color);
 
     return (
         <View style={[styles.containerCategoria, { marginBottom: 20 }]}>
             <Text style={styles.tituloCategoria}>{title}</Text>
             <View style={styles.encabezadoCategoria}>
                 <View style={styles.botonOpcionMes}>
-                    {/* Estilos movidos al objeto styles */}
-                    <Text style={styles.textoMesGrafico}>{selectedMonth} 2025</Text>
-                    <Text style={styles.indicadorFlecha}> ▼ </Text>
+                    <Text style={{ fontWeight: 'bold', fontSize: 14 }}>{selectedMonth} 2025</Text>
+                    <Text style={{ fontSize: 14, color: '#717182' }}> ▼ </Text>
                 </View>
             </View>
             
@@ -132,12 +122,9 @@ const GraficoCategoriaMensual = ({ title, selectedMonth, data }) => {
                 <View style={styles.leyendaCategoria}>
                     {data.map((item, index) => (
                         <View key={index} style={styles.itemLeyendaCategoria}>
-                            {/* MODIFICACIÓN: Usamos la colorKey para obtener el color hex del styles */}
-                            <View style={[styles.indicadorColorLeyenda, { backgroundColor: styles.COLORES_CATEGORIAS[item.colorKey], marginRight: 8 }]} />
-                            
-                            {/* Estilos movidos al objeto styles */}
-                            <Text style={styles.textoPorcentaje}>{item.percentage}</Text>
-                            <Text style={styles.textoLeyendaCategoria}>{item.name}</Text>
+                            <View style={[styles.indicadorColorLeyenda, { backgroundColor: item.color, marginRight: 8 }]} />
+                            <Text style={[styles.textoPorcentaje, { color: '#717182' }]}>{item.percentage}</Text>
+                            <Text style={[styles.textoLeyendaCategoria, { color: '#717182' }]}>{item.name}</Text>
                         </View>
                     ))}
                 </View>
@@ -179,15 +166,6 @@ export default function ReportesScreen() {
 
 // Zona estilos
 const styles = StyleSheet.create({
-    // --- COLORES DE CATEGORÍAS (MOVIDOS AQUÍ) ---
-    COLORES_CATEGORIAS: {
-        comida: '#5DADE2',      // Color 1: Comida
-        transporte: '#EC7063',  // Color 2: Transporte
-        servicios: '#F4D03F',   // Color 3: Servicios
-        otros: '#4A8FE7',       // Color 4: Otros
-    },
-
-    // --- Estilos Generales ---
     contenedorPrincipal: {
         flex: 1,
         backgroundColor: '#E3F2FD', 
@@ -273,7 +251,6 @@ const styles = StyleSheet.create({
     textoBotonMesSeleccion: { 
         color: '#ffffff',
     },
-    // --- Estilos Gráfico de Barras ---
     contenedorGraficoBarras: {
         alignItems: 'center',
         justifyContent: 'center',
@@ -315,9 +292,8 @@ const styles = StyleSheet.create({
         marginBottom: 20, 
         marginTop: 5,
     },
-    // Colores de Ingresos/Egresos (Barras)
     colorIngresosBarra: {
-        backgroundColor: '#EC7063', // Unificado al color de la barra original
+        backgroundColor: '#FF5C6C',
     },
     colorEgresosBarra: {
         backgroundColor: '#5DADE2',
@@ -341,7 +317,7 @@ const styles = StyleSheet.create({
         color: '#333', 
         fontWeight: '500', 
     },
-    // --- Estilos Gráfico de Categoría (Circular) ---
+    // Por categoria
     encabezadoCategoria: {
         flexDirection: 'row',
         justifyContent: 'flex-start', 
@@ -357,15 +333,6 @@ const styles = StyleSheet.create({
         borderColor: '#d1d1d1',
         borderRadius: 5,
         alignItems: 'center',
-    },
-    textoMesGrafico: { // Nuevo estilo para el texto del mes
-        fontWeight: 'bold', 
-        fontSize: 14, 
-        color: '#030213',
-    },
-    indicadorFlecha: { // Nuevo estilo para la flecha
-        fontSize: 14, 
-        color: '#717182',
     },
     contenidoCategoria: {
         flexDirection: 'row',
