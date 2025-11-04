@@ -15,7 +15,7 @@ LogBox.ignoreLogs([
 // Importar las pantallas
 import Home from './screens/Inicio';
 import PresupuestosMensuales from './screens/PresupuestosMensuales';
-import Calendario from './screens/GraficasScreen';
+import Graficas from './screens/GraficasScreen';
 import TransaccionesScreen from './screens/ElementoDeTransaccionScreen';
 import Historial from './screens/Historial';
 
@@ -35,8 +35,8 @@ export default function App() {
                 iconName = focused ? 'home' : 'home-outline';
               } else if (route.name === 'PresupuestosMensuales') {
                 iconName = focused ? 'wallet' : 'wallet-outline';
-              } else if (route.name === 'Calendario') {
-                iconName = focused ? 'calendar' : 'calendar-outline';
+              } else if (route.name === 'Graficas') {
+                iconName = focused ? 'pie-chart' : 'pie-chart-outline'; 
               } else if (route.name === 'Transacciones') {
                 iconName = focused ? 'swap-horizontal' : 'swap-horizontal-outline';
               } else if (route.name === 'Historial') {
@@ -68,8 +68,8 @@ export default function App() {
             options={{ tabBarLabel: 'Presupuestos' }}
           />
           <Tab.Screen 
-            name="Calendario" 
-            component={Calendario}
+            name="Graficas" 
+            component={Graficas}
             options={{ tabBarLabel: 'Graficas' }}
           />
           <Tab.Screen 
