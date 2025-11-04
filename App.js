@@ -13,6 +13,8 @@ LogBox.ignoreLogs([
 ]);
 
 // Importar las pantallas
+import LoginScreen from './screens/LoginScreen';
+import RegisterScreen from './screens/RegisterScreen';
 import Home from './screens/Inicio';
 import PresupuestosMensuales from './screens/PresupuestosMensuales';
 import Calendario from './screens/GraficasScreen';
@@ -41,6 +43,10 @@ export default function App() {
                 iconName = focused ? 'swap-horizontal' : 'swap-horizontal-outline';
               } else if (route.name === 'Historial') {
                 iconName = focused ? 'time' : 'time-outline';
+              } else if (route.name === 'Login') {
+                iconName = focused ? 'log-in' : 'log-in-outline';
+              } else if (route.name === 'Register') {
+                iconName = focused ? 'person-add' : 'person-add-outline';
               }
 
               return <Ionicons name={iconName} size={size} color={color} />;
@@ -57,6 +63,20 @@ export default function App() {
             },
           })}
         >
+
+          {/* Primero Register y luego Login */}
+          <Tab.Screen 
+            name="Register" 
+            component={RegisterScreen}
+            options={{ tabBarLabel: 'Registro' }}
+          />
+          <Tab.Screen 
+            name="Login" 
+            component={LoginScreen}
+            options={{ tabBarLabel: 'Login' }}
+          />
+
+          {/* Después el resto */}
           <Tab.Screen 
             name="Home" 
             component={Home}
@@ -70,7 +90,7 @@ export default function App() {
           <Tab.Screen 
             name="Calendario" 
             component={Calendario}
-            options={{ tabBarLabel: 'Graficas' }}
+            options={{ tabBarLabel: 'Gráficas' }}
           />
           <Tab.Screen 
             name="Transacciones" 
@@ -87,3 +107,4 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
