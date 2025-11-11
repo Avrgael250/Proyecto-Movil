@@ -7,14 +7,12 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Validar correo con @ y dominio (.com, .net, etc.)
   const validarEmail = (correo) => {
     const regex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
     return regex.test(correo.trim());
   };
 
   const manejarLogin = () => {
-    // Si los campos están vacíos
     if (email.trim() === '' || password.trim() === '') {
       if (Platform.OS === 'web') {
         window.alert('ERROR: llena todos los campos antes de continuar');
@@ -24,7 +22,6 @@ export default function LoginScreen() {
       return;
     }
 
-    // Si el correo no tiene @ o dominio
     if (!validarEmail(email)) {
       if (Platform.OS === 'web') {
         window.alert('ERROR: el correo está mal escrito.\nDebe contener "@" y un dominio válido (ejemplo@gmail.com)');
@@ -34,7 +31,6 @@ export default function LoginScreen() {
       return;
     }
 
-    // Si todo es correcto
     if (Platform.OS === 'web') {
       window.alert('BIENVENIDO ' + email);
     } else {
@@ -69,8 +65,14 @@ export default function LoginScreen() {
         <Text style={styles.buttonText}>Iniciar Sesión</Text>
       </TouchableOpacity>
 
+      {/* 🔹 Botón de registro */}
       <TouchableOpacity onPress={() => navigation.navigate('Registro')}>
         <Text style={styles.linkText}>¿No tienes una cuenta? Crear cuenta</Text>
+      </TouchableOpacity>
+
+      {/* 🔹 Botón de olvido de contraseña (movido debajo de crear cuenta) */}
+      <TouchableOpacity onPress={() => navigation.navigate('RecuperarContraseña')}>
+        <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -115,6 +117,11 @@ const styles = StyleSheet.create({
   },
   linkText: {
     marginTop: 20,
+    color: '#4A8FE7',
+    fontWeight: '500',
+  },
+  forgotText: {
+    marginTop: 15,
     color: '#4A8FE7',
     fontWeight: '500',
   },
