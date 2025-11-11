@@ -70,7 +70,7 @@ export default function LoginScreen() {
         <Text style={styles.linkText}>¿No tienes una cuenta? Crear cuenta</Text>
       </TouchableOpacity>
 
-      {/* 🔹 Botón de olvido de contraseña (movido debajo de crear cuenta) */}
+      {/* 🔹 Botón de olvido de contraseña */}
       <TouchableOpacity onPress={() => navigation.navigate('RecuperarContraseña')}>
         <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
       </TouchableOpacity>
