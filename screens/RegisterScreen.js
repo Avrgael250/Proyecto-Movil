@@ -1,13 +1,46 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Switch, Platform } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Switch, Platform, StatusBar } from 'react-native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import * as NavigationBar from 'expo-navigation-bar';
 
 export default function RegisterScreen() {
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmar, setConfirmar] = useState('');
   const [aceptarCondiciones, setAceptarCondiciones] = useState(false);
+
+  useEffect(() => {
+    const hideSystemBars = async () => {
+      if (Platform.OS === 'android') {
+        await StatusBar.setTranslucent(true);
+        await NavigationBar.setVisibilityAsync('hidden');
+        await NavigationBar.setBehaviorAsync('overlay');
+        StatusBar.setHidden(true);
+      } else {
+        StatusBar.setHidden(true, 'fade');
+      }
+    };
+
+    const showSystemBars = async () => {
+      if (Platform.OS === 'android') {
+        await StatusBar.setTranslucent(false);
+        await NavigationBar.setVisibilityAsync('visible');
+        StatusBar.setHidden(false);
+      } else {
+        StatusBar.setHidden(false, 'fade');
+      }
+    };
+
+    if (isFocused) {
+      hideSystemBars();
+    }
+
+    return () => {
+      showSystemBars();
+    };
+  }, [isFocused]);
 
   // validacion de correo para que tenga @ y un dominio 
   const validarEmail = (correo) => {
