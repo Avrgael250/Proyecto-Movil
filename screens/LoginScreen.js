@@ -65,13 +65,13 @@ export default function LoginScreen() {
         <Text style={styles.buttonText}>Iniciar Sesión</Text>
       </TouchableOpacity>
 
-      {/* 🔹 Botón de registro */}
+      {/* registro */}
       <TouchableOpacity onPress={() => navigation.navigate('Registro')}>
         <Text style={styles.linkText}>¿No tienes una cuenta? Crear cuenta</Text>
       </TouchableOpacity>
 
-      {/* 🔹 Botón de olvido de contraseña */}
-      <TouchableOpacity onPress={() => navigation.navigate('RecuperarContraseña')}>
+      {/*olvido de contraseña */}
+      <TouchableOpacity onPress={() => navigation.navigate('RecuperarContraseñaScreen')}>
         <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
       </TouchableOpacity>
     </SafeAreaView>
