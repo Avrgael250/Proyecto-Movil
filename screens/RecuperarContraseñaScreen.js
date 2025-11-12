@@ -2,49 +2,51 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-export default function LoginScreen() {
+export default function RecuperarContraseñaScreen() {
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
 
   const validarEmail = (correo) => {
     const regex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
     return regex.test(correo.trim());
   };
 
-  const manejarLogin = () => {
-    if (email.trim() === '' || password.trim() === '') {
+  const manejarRecuperacion = () => {
+    if (email.trim() === '') {
       if (Platform.OS === 'web') {
-        window.alert('ERROR: llena todos los campos antes de continuar');
+        window.alert('Por favor ingresa tu correo electrónico.');
       } else {
-        Alert.alert('ERROR', 'Llena todos los campos antes de continuar');
+        Alert.alert('Error', 'Por favor ingresa tu correo electrónico.');
       }
       return;
     }
 
     if (!validarEmail(email)) {
       if (Platform.OS === 'web') {
-        window.alert('ERROR: el correo está mal escrito.\nDebe contener "@" y un dominio válido (ejemplo@gmail.com)');
+        window.alert('El correo ingresado no es válido.');
       } else {
-        Alert.alert('ERROR', 'El correo está mal escrito.\nDebe contener "@" y un dominio válido (ejemplo@gmail.com)');
+        Alert.alert('Error', 'El correo ingresado no es válido.');
       }
       return;
     }
 
     if (Platform.OS === 'web') {
-      window.alert('BIENVENIDO ' + email);
+      window.alert(`Se ha enviado un enlace de recuperación a ${email}`);
     } else {
-      Alert.alert('BIENVENIDO', email);
+      Alert.alert('Correo enviado', `Se ha enviado un enlace de recuperación a ${email}`);
     }
+
+    // Regresa al login
+    navigation.goBack(); 
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Iniciar Sesión</Text>
+      <Text style={styles.title}>Recuperar Contraseña</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="Correo electrónico"
+        placeholder="Ingresa tu correo electrónico"
         placeholderTextColor="#999"
         keyboardType="email-address"
         autoCapitalize="none"
@@ -52,27 +54,12 @@ export default function LoginScreen() {
         onChangeText={setEmail}
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Contraseña"
-        placeholderTextColor="#999"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-
-      <TouchableOpacity style={styles.button} onPress={manejarLogin}>
-        <Text style={styles.buttonText}>Iniciar Sesión</Text>
+      <TouchableOpacity style={styles.button} onPress={manejarRecuperacion}>
+        <Text style={styles.buttonText}>Enviar enlace de recuperación</Text>
       </TouchableOpacity>
 
-      {/* registro */}
-      <TouchableOpacity onPress={() => navigation.navigate('Registro')}>
-        <Text style={styles.linkText}>¿No tienes una cuenta? Crear cuenta</Text>
-      </TouchableOpacity>
-
-      {/*olvido de contraseña */}
-      <TouchableOpacity onPress={() => navigation.navigate('RecuperarContraseñaScreen')}>
-        <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+      <TouchableOpacity onPress={() => navigation.goBack()}>
+        <Text style={styles.linkText}>Volver al inicio de sesión</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -87,17 +74,17 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#030213',
-    marginBottom: 40,
+    marginBottom: 30,
   },
   input: {
     width: '90%',
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 14,
-    marginBottom: 16,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: '#ccc',
     fontSize: 16,
@@ -108,20 +95,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    marginTop: 8,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
   },
   linkText: {
     marginTop: 20,
-    color: '#4A8FE7',
-    fontWeight: '500',
-  },
-  forgotText: {
-    marginTop: 15,
     color: '#4A8FE7',
     fontWeight: '500',
   },

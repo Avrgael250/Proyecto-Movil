@@ -10,9 +10,13 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { transaccionesEjemplo, categorias } from './DatosEjemplo';
 import ElementoTransaccion from './ElementoDeTransaccionScreen';
+
+const { width, height } = Dimensions.get('window');
 
 const ScreenDeTransacciones = () => {
   // Estados principales
@@ -72,21 +76,18 @@ const ScreenDeTransacciones = () => {
   const aplicarFiltros = () => {
     let transaccionesFiltradasTemp = [...transacciones];
     
-    // Filtrar por tipo (ingreso/gasto)
     if (filtros.tipo) {
       transaccionesFiltradasTemp = transaccionesFiltradasTemp.filter(
         t => t.tipo === filtros.tipo
       );
     }
     
-    // Filtrar por monto mínimo
     if (filtros.montoMinimo) {
       transaccionesFiltradasTemp = transaccionesFiltradasTemp.filter(
         t => t.monto >= parseFloat(filtros.montoMinimo)
       );
     }
     
-    // Filtrar por monto máximo
     if (filtros.montoMaximo) {
       transaccionesFiltradasTemp = transaccionesFiltradasTemp.filter(
         t => t.monto <= parseFloat(filtros.montoMaximo)
@@ -121,14 +122,12 @@ const ScreenDeTransacciones = () => {
   };
 
   const guardarTransaccion = () => {
-    // Validar campos obligatorios
     if (!datosFormulario.monto || !datosFormulario.categoria) {
       Alert.alert('Error', 'Por favor completa el monto y la categoría');
       return;
     }
 
     if (transaccionEditando) {
-      // EDITAR transacción existente
       setTransacciones(prev => 
         prev.map(t => 
           t.id === transaccionEditando.id 
@@ -141,7 +140,6 @@ const ScreenDeTransacciones = () => {
         )
       );
     } else {
-      // AGREGAR nueva transacción
       const nuevaTransaccion = {
         ...datosFormulario,
         id: Date.now().toString(),
@@ -193,354 +191,12 @@ const ScreenDeTransacciones = () => {
     setMostrarModalDetalles(true);
   };
 
-  // --- COMPONENTES DE MODALES ---
-  const ModalDetalles = () => {
-    if (!mostrarModalDetalles) return null;
-
-    return (
-      <View style={estilos.fondoModal}>
-        <View style={estilos.contenedorModal}>
-          <View style={estilos.encabezadoModal}>
-            <Text style={estilos.tituloModal}>📋 Detalles</Text>
-            <TouchableOpacity onPress={() => setMostrarModalDetalles(false)}>
-              <Text style={estilos.botonCerrar}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          {transaccionSeleccionada && (
-            <ScrollView style={estilos.contenidoModal}>
-              <View style={estilos.tarjetaDetalles}>
-                <View style={estilos.seccionIcono}>
-                  <View style={[
-                    estilos.contenedorIconoGrande,
-                    { 
-                      backgroundColor: transaccionSeleccionada.tipo === 'ingreso' 
-                        ? '#E0F2FE' 
-                        : '#FEE2E2' 
-                    }
-                  ]}>
-                    <Text style={estilos.emojiGrande}>
-                      {transaccionSeleccionada.tipo === 'ingreso' ? '💰' : '💸'}
-                    </Text>
-                  </View>
-                  <Text style={estilos.textoCategoriaGrande}>
-                    {transaccionSeleccionada.categoria}
-                  </Text>
-                  <Text style={[
-                    estilos.textoMontoGrande,
-                    { 
-                      color: transaccionSeleccionada.tipo === 'ingreso' 
-                        ? '#0EA5E9' 
-                        : '#EF4444' 
-                    }
-                  ]}>
-                    {transaccionSeleccionada.tipo === 'ingreso' ? '+' : '-'}$
-                    {transaccionSeleccionada.monto}
-                  </Text>
-                </View>
-
-                <View style={estilos.seccionInformacion}>
-                  <View style={estilos.filaDetalle}>
-                    <Text style={estilos.etiquetaDetalle}>Descripción:</Text>
-                    <Text style={estilos.valorDetalle}>
-                      {transaccionSeleccionada.descripcion || 'Sin descripción'}
-                    </Text>
-                  </View>
-                  <View style={estilos.filaDetalle}>
-                    <Text style={estilos.etiquetaDetalle}>Fecha:</Text>
-                    <Text style={estilos.valorDetalle}>
-                      {new Date(transaccionSeleccionada.fecha).toLocaleDateString('es-ES')}
-                    </Text>
-                  </View>
-                  <View style={estilos.filaDetalle}>
-                    <Text style={estilos.etiquetaDetalle}>Tipo:</Text>
-                    <Text style={estilos.valorDetalle}>
-                      {transaccionSeleccionada.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={estilos.seccionAcciones}>
-                  <TouchableOpacity 
-                    style={[estilos.botonAccion, estilos.botonEditar]}
-                    onPress={() => editarTransaccion(transaccionSeleccionada)}
-                  >
-                    <Text style={estilos.textoBotonEditar}>✏️ Editar</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[estilos.botonAccion, estilos.botonEliminar]}
-                    onPress={() => eliminarTransaccion(transaccionSeleccionada.id)}
-                  >
-                    <Text style={estilos.textoBotonEliminar}>🗑️ Eliminar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </ScrollView>
-          )}
-        </View>
-      </View>
-    );
-  };
-
-  const ModalFormulario = () => {
-    if (!mostrarModalFormulario) return null;
-
-    const categoriasFiltradas = categorias.filter(
-      cat => cat.tipo === datosFormulario.tipo
-    );
-
-    return (
-      <View style={estilos.fondoModal}>
-        <View style={[estilos.contenedorModal, estilos.modalGrande]}>
-          <View style={estilos.encabezadoModal}>
-            <Text style={estilos.tituloModal}>
-              {transaccionEditando ? '✏️ Editar' : '➕ Nueva'} Transacción
-            </Text>
-            <TouchableOpacity onPress={() => setMostrarModalFormulario(false)}>
-              <Text style={estilos.botonCerrar}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={estilos.contenidoModal}>
-            {/* Selección de Tipo */}
-            <View style={estilos.seccionFormulario}>
-              <Text style={estilos.etiquetaFormulario}>Tipo de Transacción *</Text>
-              <View style={estilos.contenedorTipos}>
-                <TouchableOpacity
-                  style={[
-                    estilos.botonTipo,
-                    datosFormulario.tipo === 'gasto' && estilos.botonTipoActivo
-                  ]}
-                  onPress={() => setDatosFormulario(prev => ({ ...prev, tipo: 'gasto' }))}
-                >
-                  <Text style={[
-                    estilos.textoBotonTipo,
-                    datosFormulario.tipo === 'gasto' && estilos.textoBotonTipoActivo
-                  ]}>
-                    💸 Gasto
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[
-                    estilos.botonTipo,
-                    datosFormulario.tipo === 'ingreso' && estilos.botonTipoActivo
-                  ]}
-                  onPress={() => setDatosFormulario(prev => ({ ...prev, tipo: 'ingreso' }))}
-                >
-                  <Text style={[
-                    estilos.textoBotonTipo,
-                    datosFormulario.tipo === 'ingreso' && estilos.textoBotonTipoActivo
-                  ]}>
-                    💰 Ingreso
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Campo Monto */}
-            <View style={estilos.seccionFormulario}>
-              <Text style={estilos.etiquetaFormulario}>Monto *</Text>
-              <View style={estilos.contenedorMonto}>
-                <Text style={estilos.simboloMoneda}>$</Text>
-                <TextInput
-                  style={estilos.campoMonto}
-                  placeholder="0.00"
-                  value={datosFormulario.monto}
-                  onChangeText={(texto) => setDatosFormulario(prev => ({ ...prev, monto: texto }))}
-                  keyboardType="decimal-pad"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-            </View>
-
-            {/* Campo Categoría */}
-            <View style={estilos.seccionFormulario}>
-              <Text style={estilos.etiquetaFormulario}>Categoría *</Text>
-              <View style={estilos.contenedorCategorias}>
-                {categoriasFiltradas.map((categoria) => (
-                  <TouchableOpacity
-                    key={categoria.id}
-                    style={[
-                      estilos.botonCategoria,
-                      datosFormulario.categoria === categoria.nombre && 
-                        estilos.botonCategoriaActivo
-                    ]}
-                    onPress={() => setDatosFormulario(prev => ({ 
-                      ...prev, 
-                      categoria: categoria.nombre 
-                    }))}
-                  >
-                    <Text style={[
-                      estilos.textoBotonCategoria,
-                      datosFormulario.categoria === categoria.nombre && 
-                        estilos.textoBotonCategoriaActivo
-                    ]}>
-                      {categoria.nombre}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Campo Descripción */}
-            <View style={estilos.seccionFormulario}>
-              <Text style={estilos.etiquetaFormulario}>Descripción</Text>
-              <TextInput
-                style={estilos.campoDescripcion}
-                placeholder="Agregar una nota o descripción..."
-                value={datosFormulario.descripcion}
-                onChangeText={(texto) => setDatosFormulario(prev => ({ ...prev, descripcion: texto }))}
-                multiline
-                numberOfLines={3}
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-
-            {/* Campo Fecha */}
-            <View style={estilos.seccionFormulario}>
-              <Text style={estilos.etiquetaFormulario}>Fecha *</Text>
-              <TextInput
-                style={estilos.campoFecha}
-                value={datosFormulario.fecha}
-                onChangeText={(texto) => setDatosFormulario(prev => ({ ...prev, fecha: texto }))}
-                placeholder="AAAA-MM-DD"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-
-            {/* Botón Guardar */}
-            <TouchableOpacity 
-              style={[
-                estilos.botonGuardar,
-                { 
-                  backgroundColor: datosFormulario.tipo === 'ingreso' 
-                    ? '#0EA5E9' 
-                    : '#EF4444' 
-                }
-              ]}
-              onPress={guardarTransaccion}
-            >
-              <Text style={estilos.textoBotonGuardar}>
-                {transaccionEditando ? '💾 Guardar Cambios' : '➕ Agregar Transacción'}
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </View>
-    );
-  };
-
-  const ModalFiltros = () => {
-    if (!mostrarModalFiltros) return null;
-
-    return (
-      <View style={estilos.fondoModal}>
-        <View style={estilos.contenedorModal}>
-          <View style={estilos.encabezadoModal}>
-            <Text style={estilos.tituloModal}>🔍 Filtrar Transacciones</Text>
-            <TouchableOpacity onPress={() => setMostrarModalFiltros(false)}>
-              <Text style={estilos.botonCerrar}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={estilos.contenidoModal}>
-            {/* Filtro por Tipo */}
-            <View style={estilos.seccionFiltro}>
-              <Text style={estilos.tituloSeccionFiltro}>Filtrar por Tipo</Text>
-              <View style={estilos.botonesTipoFiltro}>
-                <TouchableOpacity
-                  style={[
-                    estilos.botonFiltroTipo,
-                    filtros.tipo === 'ingreso' && estilos.botonFiltroTipoActivo
-                  ]}
-                  onPress={() => setFiltros(prev => ({ ...prev, tipo: 'ingreso' }))}
-                >
-                  <Text style={[
-                    estilos.textoBotonFiltroTipo,
-                    filtros.tipo === 'ingreso' && estilos.textoBotonFiltroTipoActivo
-                  ]}>
-                    💰 Solo Ingresos
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    estilos.botonFiltroTipo,
-                    filtros.tipo === 'gasto' && estilos.botonFiltroTipoActivo
-                  ]}
-                  onPress={() => setFiltros(prev => ({ ...prev, tipo: 'gasto' }))}
-                >
-                  <Text style={[
-                    estilos.textoBotonFiltroTipo,
-                    filtros.tipo === 'gasto' && estilos.textoBotonFiltroTipoActivo
-                  ]}>
-                    💸 Solo Gastos
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={estilos.botonFiltroTipo}
-                  onPress={() => setFiltros(prev => ({ ...prev, tipo: null }))}
-                >
-                  <Text style={estilos.textoBotonFiltroTipo}>📊 Todos</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Filtro por Monto */}
-            <View style={estilos.seccionFiltro}>
-              <Text style={estilos.tituloSeccionFiltro}>Filtrar por Monto</Text>
-              <View style={estilos.filtroMonto}>
-                <View style={estilos.contenedorInputMonto}>
-                  <Text style={estilos.etiquetaInputMonto}>Monto Mínimo</Text>
-                  <TextInput
-                    style={estilos.inputMonto}
-                    placeholder="0"
-                    value={filtros.montoMinimo}
-                    onChangeText={(texto) => setFiltros(prev => ({ ...prev, montoMinimo: texto }))}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-                <View style={estilos.contenedorInputMonto}>
-                  <Text style={estilos.etiquetaInputMonto}>Monto Máximo</Text>
-                  <TextInput
-                    style={estilos.inputMonto}
-                    placeholder="1000"
-                    value={filtros.montoMaximo}
-                    onChangeText={(texto) => setFiltros(prev => ({ ...prev, montoMaximo: texto }))}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              </View>
-            </View>
-            {/* Botones de Acción */}
-            <View style={estilos.contenedorBotonesFiltro}>
-              <TouchableOpacity 
-                style={[estilos.botonFiltroAccion, estilos.botonLimpiar]}
-                onPress={limpiarFiltros}
-              >
-                <Text style={estilos.textoBotonLimpiar}>🔄 Limpiar Filtros</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[estilos.botonFiltroAccion, estilos.botonAplicar]}
-                onPress={aplicarFiltros}
-              >
-                <Text style={estilos.textoBotonAplicar}>✅ Aplicar Filtros</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
-      </View>
-    );
-  };
-
   // --- COMPONENTES PRINCIPALES ---
   const Encabezado = () => (
     <View style={estilos.encabezado}>
       <Text style={estilos.tituloApp}>Ahorra+ App</Text>
       <Text style={estilos.tituloPantalla}>Mis Transacciones</Text>
       
-      {/* Tarjeta de Resumen */}
       <View style={estilos.contenedorResumen}>
         <View style={estilos.itemResumen}>
           <Text style={estilos.etiquetaResumen}>Ingresos</Text>
@@ -586,41 +242,384 @@ const ScreenDeTransacciones = () => {
   );
 
   return (
-    <SafeAreaView style={estilos.contenedor}>
-      <StatusBar barStyle="dark-content" />
-      
-      <Encabezado />
-      <Controles />
+    <SafeAreaView style={estilos.contenedorSafeArea}>
+      <View style={estilos.contenedor}>
+        <StatusBar barStyle="dark-content" />
+        
+        <Encabezado />
+        <Controles />
 
-      {/* Lista de Transacciones */}
-      <FlatList
-        data={transaccionesFiltradas}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ElementoTransaccion 
-            transaccion={item} 
-            alPresionar={() => verDetalles(item)}
-          />
-        )}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={estilos.contenidoLista}
-        ListEmptyComponent={
-          <Text style={estilos.textoListaVacia}>
-            No hay transacciones para mostrar
-          </Text>
-        }
-      />
+        <FlatList
+          data={transaccionesFiltradas}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <ElementoTransaccion 
+              transaccion={item} 
+              alPresionar={() => verDetalles(item)}
+            />
+          )}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={estilos.contenidoLista}
+          ListEmptyComponent={
+            <Text style={estilos.textoListaVacia}>
+              No hay transacciones para mostrar
+            </Text>
+          }
+        />
 
-      {/* Modales */}
-      <ModalDetalles />
-      <ModalFormulario />
-      <ModalFiltros />
+        {/* MODAL DETALLES - CORREGIDO */}
+        <Modal
+          visible={mostrarModalDetalles}
+          animationType="slide"
+          transparent={true}
+          statusBarTranslucent={true}
+          onRequestClose={() => setMostrarModalDetalles(false)}
+        >
+          <View style={estilos.modalOverlay}>
+            <View style={estilos.modalContainer}>
+              <View style={estilos.modalHeader}>
+                <Text style={estilos.modalTitle}>📋 Detalles</Text>
+                <TouchableOpacity 
+                  onPress={() => setMostrarModalDetalles(false)}
+                  style={estilos.closeButton}
+                >
+                  <Text style={estilos.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={estilos.modalContent}>
+                {transaccionSeleccionada && (
+                  <View style={estilos.detailCard}>
+                    <View style={estilos.detailIconSection}>
+                      <View style={[
+                        estilos.detailIconContainer,
+                        { 
+                          backgroundColor: transaccionSeleccionada.tipo === 'ingreso' 
+                            ? '#E0F2FE' 
+                            : '#FEE2E2' 
+                        }
+                      ]}>
+                        <Text style={estilos.detailIcon}>
+                          {transaccionSeleccionada.tipo === 'ingreso' ? '💰' : '💸'}
+                        </Text>
+                      </View>
+                      <Text style={estilos.detailCategory}>
+                        {transaccionSeleccionada.categoria}
+                      </Text>
+                      <Text style={[
+                        estilos.detailAmount,
+                        { 
+                          color: transaccionSeleccionada.tipo === 'ingreso' 
+                            ? '#0EA5E9' 
+                            : '#EF4444' 
+                        }
+                      ]}>
+                        {transaccionSeleccionada.tipo === 'ingreso' ? '+' : '-'}${transaccionSeleccionada.monto}
+                      </Text>
+                    </View>
+
+                    <View style={estilos.detailInfo}>
+                      <View style={estilos.detailRow}>
+                        <Text style={estilos.detailLabel}>Descripción:</Text>
+                        <Text style={estilos.detailValue}>
+                          {transaccionSeleccionada.descripcion || 'Sin descripción'}
+                        </Text>
+                      </View>
+                      <View style={estilos.detailRow}>
+                        <Text style={estilos.detailLabel}>Fecha:</Text>
+                        <Text style={estilos.detailValue}>
+                          {new Date(transaccionSeleccionada.fecha).toLocaleDateString('es-ES')}
+                        </Text>
+                      </View>
+                      <View style={estilos.detailRow}>
+                        <Text style={estilos.detailLabel}>Tipo:</Text>
+                        <Text style={estilos.detailValue}>
+                          {transaccionSeleccionada.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={estilos.detailActions}>
+                      <TouchableOpacity 
+                        style={[estilos.actionButton, estilos.editButton]}
+                        onPress={() => editarTransaccion(transaccionSeleccionada)}
+                      >
+                        <Text style={estilos.editButtonText}>✏️ Editar</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity 
+                        style={[estilos.actionButton, estilos.deleteButton]}
+                        onPress={() => eliminarTransaccion(transaccionSeleccionada.id)}
+                      >
+                        <Text style={estilos.deleteButtonText}>🗑️ Eliminar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* MODAL FORMULARIO - CORREGIDO */}
+        <Modal
+          visible={mostrarModalFormulario}
+          animationType="slide"
+          transparent={true}
+          statusBarTranslucent={true}
+          onRequestClose={() => setMostrarModalFormulario(false)}
+        >
+          <View style={estilos.modalOverlay}>
+            <View style={[estilos.modalContainer, estilos.largeModal]}>
+              <View style={estilos.modalHeader}>
+                <Text style={estilos.modalTitle}>
+                  {transaccionEditando ? '✏️ Editar' : '➕ Nueva'} Transacción
+                </Text>
+                <TouchableOpacity 
+                  onPress={() => setMostrarModalFormulario(false)}
+                  style={estilos.closeButton}
+                >
+                  <Text style={estilos.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={estilos.modalContent}>
+                <View style={estilos.formSection}>
+                  <Text style={estilos.formLabel}>Tipo de Transacción *</Text>
+                  <View style={estilos.typeButtons}>
+                    <TouchableOpacity
+                      style={[
+                        estilos.typeButton,
+                        datosFormulario.tipo === 'gasto' && estilos.typeButtonActive
+                      ]}
+                      onPress={() => setDatosFormulario(prev => ({ ...prev, tipo: 'gasto' }))}
+                    >
+                      <Text style={[
+                        estilos.typeButtonText,
+                        datosFormulario.tipo === 'gasto' && estilos.typeButtonTextActive
+                      ]}>
+                        💸 Gasto
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={[
+                        estilos.typeButton,
+                        datosFormulario.tipo === 'ingreso' && estilos.typeButtonActive
+                      ]}
+                      onPress={() => setDatosFormulario(prev => ({ ...prev, tipo: 'ingreso' }))}
+                    >
+                      <Text style={[
+                        estilos.typeButtonText,
+                        datosFormulario.tipo === 'ingreso' && estilos.typeButtonTextActive
+                      ]}>
+                        💰 Ingreso
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={estilos.formSection}>
+                  <Text style={estilos.formLabel}>Monto *</Text>
+                  <View style={estilos.amountContainer}>
+                    <Text style={estilos.currencySymbol}>$</Text>
+                    <TextInput
+                      style={estilos.amountInput}
+                      placeholder="0.00"
+                      value={datosFormulario.monto}
+                      onChangeText={(texto) => setDatosFormulario(prev => ({ ...prev, monto: texto }))}
+                      keyboardType="decimal-pad"
+                      placeholderTextColor="#9CA3AF"
+                    />
+                  </View>
+                </View>
+
+                <View style={estilos.formSection}>
+                  <Text style={estilos.formLabel}>Categoría *</Text>
+                  <View style={estilos.categoryButtons}>
+                    {categorias.filter(cat => cat.tipo === datosFormulario.tipo).map((categoria) => (
+                      <TouchableOpacity
+                        key={categoria.id}
+                        style={[
+                          estilos.categoryButton,
+                          datosFormulario.categoria === categoria.nombre && estilos.categoryButtonActive
+                        ]}
+                        onPress={() => setDatosFormulario(prev => ({ 
+                          ...prev, 
+                          categoria: categoria.nombre 
+                        }))}
+                      >
+                        <Text style={[
+                          estilos.categoryButtonText,
+                          datosFormulario.categoria === categoria.nombre && estilos.categoryButtonTextActive
+                        ]}>
+                          {categoria.nombre}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={estilos.formSection}>
+                  <Text style={estilos.formLabel}>Descripción</Text>
+                  <TextInput
+                    style={estilos.descriptionInput}
+                    placeholder="Agregar una nota o descripción..."
+                    value={datosFormulario.descripcion}
+                    onChangeText={(texto) => setDatosFormulario(prev => ({ ...prev, descripcion: texto }))}
+                    multiline
+                    numberOfLines={3}
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+
+                <View style={estilos.formSection}>
+                  <Text style={estilos.formLabel}>Fecha *</Text>
+                  <TextInput
+                    style={estilos.dateInput}
+                    value={datosFormulario.fecha}
+                    onChangeText={(texto) => setDatosFormulario(prev => ({ ...prev, fecha: texto }))}
+                    placeholder="AAAA-MM-DD"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+
+                <TouchableOpacity 
+                  style={[
+                    estilos.saveButton,
+                    { 
+                      backgroundColor: datosFormulario.tipo === 'ingreso' 
+                        ? '#0EA5E9' 
+                        : '#EF4444' 
+                    }
+                  ]}
+                  onPress={guardarTransaccion}
+                >
+                  <Text style={estilos.saveButtonText}>
+                    {transaccionEditando ? '💾 Guardar Cambios' : '➕ Agregar Transacción'}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* MODAL FILTROS - CORREGIDO */}
+        <Modal
+          visible={mostrarModalFiltros}
+          animationType="slide"
+          transparent={true}
+          statusBarTranslucent={true}
+          onRequestClose={() => setMostrarModalFiltros(false)}
+        >
+          <View style={estilos.modalOverlay}>
+            <View style={estilos.modalContainer}>
+              <View style={estilos.modalHeader}>
+                <Text style={estilos.modalTitle}>🔍 Filtrar Transacciones</Text>
+                <TouchableOpacity 
+                  onPress={() => setMostrarModalFiltros(false)}
+                  style={estilos.closeButton}
+                >
+                  <Text style={estilos.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={estilos.modalContent}>
+                <View style={estilos.filterSection}>
+                  <Text style={estilos.filterTitle}>Filtrar por Tipo</Text>
+                  <View style={estilos.filterTypeButtons}>
+                    <TouchableOpacity
+                      style={[
+                        estilos.filterTypeButton,
+                        filtros.tipo === 'ingreso' && estilos.filterTypeButtonActive
+                      ]}
+                      onPress={() => setFiltros(prev => ({ ...prev, tipo: 'ingreso' }))}
+                    >
+                      <Text style={[
+                        estilos.filterTypeButtonText,
+                        filtros.tipo === 'ingreso' && estilos.filterTypeButtonTextActive
+                      ]}>
+                        💰 Solo Ingresos
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        estilos.filterTypeButton,
+                        filtros.tipo === 'gasto' && estilos.filterTypeButtonActive
+                      ]}
+                      onPress={() => setFiltros(prev => ({ ...prev, tipo: 'gasto' }))}
+                    >
+                      <Text style={[
+                        estilos.filterTypeButtonText,
+                        filtros.tipo === 'gasto' && estilos.filterTypeButtonTextActive
+                      ]}>
+                        💸 Solo Gastos
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={estilos.filterTypeButton}
+                      onPress={() => setFiltros(prev => ({ ...prev, tipo: null }))}
+                    >
+                      <Text style={estilos.filterTypeButtonText}>📊 Todos</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={estilos.filterSection}>
+                  <Text style={estilos.filterTitle}>Filtrar por Monto</Text>
+                  <View style={estilos.amountFilter}>
+                    <View style={estilos.amountInputContainer}>
+                      <Text style={estilos.amountInputLabel}>Monto Mínimo</Text>
+                      <TextInput
+                        style={estilos.amountFilterInput}
+                        placeholder="0"
+                        value={filtros.montoMinimo}
+                        onChangeText={(texto) => setFiltros(prev => ({ ...prev, montoMinimo: texto }))}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                    <View style={estilos.amountInputContainer}>
+                      <Text style={estilos.amountInputLabel}>Monto Máximo</Text>
+                      <TextInput
+                        style={estilos.amountFilterInput}
+                        placeholder="1000"
+                        value={filtros.montoMaximo}
+                        onChangeText={(texto) => setFiltros(prev => ({ ...prev, montoMaximo: texto }))}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                <View style={estilos.filterActions}>
+                  <TouchableOpacity 
+                    style={[estilos.filterActionButton, estilos.clearButton]}
+                    onPress={limpiarFiltros}
+                  >
+                    <Text style={estilos.clearButtonText}>🔄 Limpiar Filtros</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[estilos.filterActionButton, estilos.applyButton]}
+                    onPress={aplicarFiltros}
+                  >
+                    <Text style={estilos.applyButtonText}>✅ Aplicar Filtros</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      </View>
     </SafeAreaView>
   );
 };
 
-// ESTILOS COMPLETOS
+// ESTILOS CORREGIDOS
 const estilos = StyleSheet.create({
+  contenedorSafeArea: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
   contenedor: {
     flex: 1,
     backgroundColor: '#F8FAFC',
@@ -704,60 +703,60 @@ const estilos = StyleSheet.create({
     marginTop: 50,
     fontSize: 16,
   },
-  // Estilos para modales
-  fondoModal: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+
+  // ESTILOS DE MODALES CORREGIDOS
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
+    padding: 20,
   },
-  contenedorModal: {
+  modalContainer: {
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 20,
-    margin: 20,
-    width: '90%',
+    width: '100%',
     maxHeight: '80%',
+    overflow: 'hidden',
   },
-  modalGrande: {
-    width: '95%',
+  largeModal: {
     maxHeight: '90%',
   },
-  encabezadoModal: {
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  tituloModal: {
+  modalTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
   },
-  botonCerrar: {
-    fontSize: 20,
-    color: '#6B7280',
+  closeButton: {
     padding: 4,
   },
-  contenidoModal: {
+  closeButtonText: {
+    fontSize: 20,
+    color: '#6B7280',
+    fontWeight: 'bold',
+  },
+  modalContent: {
     flex: 1,
+    padding: 20,
   },
-  // Estilos para tarjeta de detalles
-  tarjetaDetalles: {
+
+  // Estilos para modal de detalles
+  detailCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
   },
-  seccionIcono: {
+  detailIconSection: {
     alignItems: 'center',
     marginBottom: 24,
   },
-  contenedorIconoGrande: {
+  detailIconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
@@ -765,87 +764,88 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  emojiGrande: {
+  detailIcon: {
     fontSize: 32,
   },
-  textoCategoriaGrande: {
+  detailCategory: {
     fontSize: 20,
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 8,
   },
-  textoMontoGrande: {
+  detailAmount: {
     fontSize: 36,
     fontWeight: '700',
   },
-  seccionInformacion: {
+  detailInfo: {
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
     paddingTop: 24,
   },
-  filaDetalle: {
+  detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 16,
   },
-  etiquetaDetalle: {
+  detailLabel: {
     fontSize: 14,
     color: '#6B7280',
     fontWeight: '500',
     flex: 1,
   },
-  valorDetalle: {
+  detailValue: {
     flex: 1,
     textAlign: 'right',
     fontSize: 16,
     color: '#1F2937',
     fontWeight: '500',
   },
-  seccionAcciones: {
+  detailActions: {
     flexDirection: 'row',
     marginTop: 24,
     gap: 12,
   },
-  botonAccion: {
+  actionButton: {
     flex: 1,
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
-  botonEditar: {
+  editButton: {
     backgroundColor: '#E0F2FE',
     borderWidth: 2,
     borderColor: '#0EA5E9',
   },
-  botonEliminar: {
+  deleteButton: {
     backgroundColor: '#FEE2E2',
     borderWidth: 2,
     borderColor: '#EF4444',
   },
-  textoBotonEditar: {
+  editButtonText: {
     color: '#0EA5E9',
     fontWeight: '600',
   },
-  textoBotonEliminar: {
+  deleteButtonText: {
     color: '#EF4444',
     fontWeight: '600',
   },
+
   // Estilos para formulario
-  seccionFormulario: {
+  formSection: {
     marginBottom: 20,
   },
-  etiquetaFormulario: {
+  formLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#374151',
     marginBottom: 8,
   },
-  contenedorTipos: {
+  typeButtons: {
     flexDirection: 'row',
     gap: 12,
   },
-  botonTipo: {
+  typeButton: {
     flex: 1,
     padding: 12,
     borderRadius: 8,
@@ -853,42 +853,42 @@ const estilos = StyleSheet.create({
     borderColor: '#E5E7EB',
     alignItems: 'center',
   },
-  botonTipoActivo: {
+  typeButtonActive: {
     backgroundColor: '#F0F9FF',
   },
-  textoBotonTipo: {
+  typeButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#6B7280',
   },
-  textoBotonTipoActivo: {
+  typeButtonTextActive: {
     color: '#0EA5E9',
   },
-  contenedorMonto: {
+  amountContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: '#E5E7EB',
     paddingBottom: 8,
   },
-  simboloMoneda: {
+  currencySymbol: {
     fontSize: 24,
     fontWeight: '700',
     color: '#1F2937',
     marginRight: 8,
   },
-  campoMonto: {
+  amountInput: {
     flex: 1,
     fontSize: 24,
     fontWeight: '700',
     color: '#1F2937',
   },
-  contenedorCategorias: {
+  categoryButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  botonCategoria: {
+  categoryButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -896,19 +896,19 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  botonCategoriaActivo: {
+  categoryButtonActive: {
     backgroundColor: '#0EA5E9',
     borderColor: '#0EA5E9',
   },
-  textoBotonCategoria: {
+  categoryButtonText: {
     fontSize: 14,
     color: '#6B7280',
     fontWeight: '500',
   },
-  textoBotonCategoriaActivo: {
+  categoryButtonTextActive: {
     color: '#FFFFFF',
   },
-  campoDescripcion: {
+  descriptionInput: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 8,
@@ -918,7 +918,7 @@ const estilos = StyleSheet.create({
     textAlignVertical: 'top',
     minHeight: 80,
   },
-  campoFecha: {
+  dateInput: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 8,
@@ -926,63 +926,64 @@ const estilos = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#FFFFFF',
   },
-  botonGuardar: {
+  saveButton: {
     marginTop: 20,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
-  textoBotonGuardar: {
+  saveButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
+
   // Estilos para filtros
-  seccionFiltro: {
+  filterSection: {
     marginBottom: 24,
   },
-  tituloSeccionFiltro: {
+  filterTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#374151',
     marginBottom: 12,
   },
-  botonesTipoFiltro: {
+  filterTypeButtons: {
     gap: 8,
   },
-  botonFiltroTipo: {
+  filterTypeButton: {
     padding: 12,
     borderRadius: 8,
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
   },
-  botonFiltroTipoActivo: {
+  filterTypeButtonActive: {
     backgroundColor: '#E0F2FE',
     borderWidth: 2,
     borderColor: '#0EA5E9',
   },
-  textoBotonFiltroTipo: {
+  filterTypeButtonText: {
     fontSize: 14,
     color: '#6B7280',
     fontWeight: '500',
   },
-  textoBotonFiltroTipoActivo: {
+  filterTypeButtonTextActive: {
     color: '#0EA5E9',
     fontWeight: '600',
   },
-  filtroMonto: {
+  amountFilter: {
     flexDirection: 'row',
     gap: 12,
   },
-  contenedorInputMonto: {
+  amountInputContainer: {
     flex: 1,
   },
-  etiquetaInputMonto: {
+  amountInputLabel: {
     fontSize: 14,
     color: '#6B7280',
     marginBottom: 4,
   },
-  inputMonto: {
+  amountFilterInput: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 8,
@@ -990,32 +991,32 @@ const estilos = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#FFFFFF',
   },
-  contenedorBotonesFiltro: {
+  filterActions: {
     flexDirection: 'row',
     gap: 12,
     marginTop: 20,
   },
-  botonFiltroAccion: {
+  filterActionButton: {
     flex: 1,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
-  botonLimpiar: {
+  clearButton: {
     backgroundColor: '#F3F4F6',
     borderWidth: 2,
     borderColor: '#6B7280',
   },
-  botonAplicar: {
+  applyButton: {
     backgroundColor: '#0EA5E9',
     borderWidth: 2,
     borderColor: '#0EA5E9',
   },
-  textoBotonLimpiar: {
+  clearButtonText: {
     color: '#6B7280',
     fontWeight: '600',
   },
-  textoBotonAplicar: {
+  applyButtonText: {
     color: '#FFFFFF',
     fontWeight: '600',
   },
