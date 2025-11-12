@@ -1,130 +1,108 @@
-// Zona de importaciones
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, Platform, Dimensions, StatusBar, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
+import * as NavigationBar from 'expo-navigation-bar';
 
-// Para que se ajuste en el celular 
-const screenWidth = Dimensions.get('window').width; 
-
-// Datos meses opciones
-const meses = [ 
-    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+// Datos Opciones de Reporte
+const opcionesReporte = [ 
+    'Ingresos', 
+    'Egresos', 
+    'Historial', 
 ];
 
-// Datos fijos (ejemplo grafica barras)
-const dataFija = {
-    mes: 'Enero', 
-    ingresos: 500, 
-    egresos: 240, 
-};
+// Datos Opciones de Tiempo
+const opcionesTiempo = [
+    'Semana',
+    'Mes',
+    'Año',
+];
 
-// Datos fijos (ejemplo graficas pastel)
+// Datos para la gráfica pastel
 const categoriasData = [
-    { name: 'Comida', percentage: '40%', color: '#5DADE2' }, 
-    { name: 'Transporte', percentage: '28%', color: '#EC7063' }, 
-    { name: 'Servicios', percentage: '22%', color: '#F4D03F' }, 
-    { name: 'Otros', percentage: '10%', color: '#4A8FE7' }, 
+    { name: 'Comida', percentage: '40%', color: '#F4D03F' }, // Amarillo
+    { name: 'Transporte', percentage: '28%', color: '#5DADE2' }, // Azul
+    { name: 'Servicios', percentage: '22%', color: '#EC7063' }, // Rojo
+    { name: 'Otros', percentage: '10%', color: '#f5ae2cff' }, // Naranja 
 ];
 
-// Opcion de los meses
-const MonthSelector = () => (
-    <ScrollView 
-        horizontal // Para ver los meses de forma horizontal
-        showsHorizontalScrollIndicator={false} 
-        contentContainerStyle={styles.selectorMes}
-    >
-        {meses.map((mes, index) => (
-            <View
+// Selector de Opciones (Ingresos, Egresos, Historial)
+const OpcionSelector = ({ opciones, selected, onSelect }) => (
+    <View style={styles.opcionSelectorContainer}>
+        {opciones.map((opcion, index) => (
+            <TouchableOpacity
                 key={index}
                 style={[
-                    styles.botonMes,
-                    index === 0 && styles.botonMesSeleccion // Para mostrar el boton seleccionado
+                    styles.opcionBoton,
+                    index === 0 && styles.opcionBotonSeleccionado // Simular 'Ingresos' como seleccionado
                 ]}
             >
                 <Text style={[
-                    styles.textoBotonMes,
-                    index === 0 && styles.textoBotonMesSeleccion // Para cambiar el color de texto a seleccionar
+                    styles.opcionTexto,
+                    index === 0 && styles.opcionTextoSeleccionado
                 ]}>
-                    {mes}
+                    {opcion}
                 </Text>
-            </View>
+            </TouchableOpacity>
         ))}
-    </ScrollView>
+    </View>
 );
 
-// Grafica de barras
-const GraficoBarrasMensual = ({ mesData }) => {
-    // Tamaño maximo de las barras
-    const maxBarHeight = 150;
-    const maxValGlobal = 600; 
+// Selector de Tiempo (Semana, Mes, Año)
+const TiempoSelector = ({ opciones, selected, onSelect }) => (
+    <View style={styles.tiempoSelectorContainer}>
+        {opciones.map((opcion, index) => (
+            <TouchableOpacity
+                key={index}
+                style={[
+                    styles.tiempoBoton,
+                    index === 1 && styles.tiempoBotonSeleccionado // Simular Mes seleccionado
+                ]}
+            >
+                <Text style={[
+                    styles.tiempoTexto,
+                    index === 1 && styles.tiempoTextoSeleccionado
+                ]}>
+                    {opcion}
+                </Text>
+            </TouchableOpacity>
+        ))}
+    </View>
+);
 
-    const ingresosHeight = (mesData.ingresos / maxValGlobal) * maxBarHeight;
-    const egresosHeight = (mesData.egresos / maxValGlobal) * maxBarHeight;
-
-    return (
-        <View style={[styles.containerMes, { marginBottom: 10 }]}>
-            <Text style={styles.tituloMes}>Ingresos y Egresos por Mes</Text>
-            {/* Leyenda de ingresos y egresos */}
-            <View style={styles.leyendaBarras}>
-                <View style={styles.itemLeyenda}>
-                    <View style={[styles.indicadorColorLeyenda, styles.colorIngresosBarra]} />
-                    <Text style={styles.textoLeyenda}>Ingresos</Text>
-                </View>
-                <View style={styles.itemLeyenda}>
-                    <View style={[styles.indicadorColorLeyenda, styles.colorEgresosBarra]} />
-                    <Text style={styles.textoLeyenda}>Egresos</Text>
-                </View>
-            </View>
-            {/* Estilos de la barras */}
-            <View style={styles.contenedorGraficoBarras}>
-                <View style={styles.contenedorBarrasCentrado}>
-                    <View style={styles.espacioBarras}>
-                        <View style={[styles.tamanoBarras, { height: ingresosHeight, backgroundColor: '#EC7063' }]} />
-                    </View>
-                    <View style={styles.espacioBarras}>
-                        <View style={[styles.tamanoBarras, { height: egresosHeight, backgroundColor: '#5DADE2', marginLeft: 5 }]} />
-                    </View>
-                </View>
-                <View style={styles.lineaGrafica} />
-                <Text style={styles.etiquetaMesBarra}>{mesData.mes} 2025</Text>
-            </View>
-        </View>
-    );
-};
-
-// Grafica circular
-const GraficoCategoriaMensual = ({ title, selectedMonth, data }) => {
+// Gráfico de Pastel y Leyenda
+const GraficoPastelBoceto = ({ title, selectedDate, data }) => {
+    // Se extraen los colores para simular el gráfico de pastel con bordes
     const [color1, color2, color3, color4] = data.map(d => d.color);
 
     return (
-        <View style={[styles.containerCategoria, { marginBottom: 20 }]}>
-            <Text style={styles.tituloCategoria}>{title}</Text>
-            <View style={styles.encabezadoCategoria}>
-                <View style={styles.botonOpcionMes}>
-                    <Text style={{ fontWeight: 'bold', fontSize: 14 }}>{selectedMonth} 2025</Text>
-                    <Text style={{ fontSize: 14, color: '#717182' }}> ▼ </Text>
-                </View>
-            </View>
+        <View style={styles.graficoBocetoContainer}>
+            <TiempoSelector opciones={opcionesTiempo} />
+
+            <Text style={styles.fechaTexto}>Noviembre de 2025</Text>
             
-            <View style={styles.contenidoCategoria}>
+            <View style={styles.contenidoGrafico}>
+                {/* Contenedor del Gráfico de Pastel Simulado */}
                 <View style={styles.contenedorGraficoPastel}>
-                     <View style={[
+                    <View style={[
                         styles.graficoPastelSimulado, 
                         {
+                            // Estos bordes simulan las secciones del pastel
                             borderColor: color1,
                             borderRightColor: color2,
                             borderBottomColor: color3,
                             borderTopColor: color4,
                         }
-                     ]} />
+                    ]} />
                 </View>
 
+                {/* Leyenda de Categorías */}
                 <View style={styles.leyendaCategoria}>
                     {data.map((item, index) => (
                         <View key={index} style={styles.itemLeyendaCategoria}>
                             <View style={[styles.indicadorColorLeyenda, { backgroundColor: item.color, marginRight: 8 }]} />
-                            <Text style={[styles.textoPorcentaje, { color: '#717182' }]}>{item.percentage}</Text>
-                            <Text style={[styles.textoLeyendaCategoria, { color: '#717182' }]}>{item.name}</Text>
+                            <Text style={styles.textoPorcentaje}> ejemplo %</Text>
+                            <Text style={styles.textoLeyendaCategoria}>{item.name}</Text>
                         </View>
                     ))}
                 </View>
@@ -133,253 +111,202 @@ const GraficoCategoriaMensual = ({ title, selectedMonth, data }) => {
     );
 };
 
-export default function ReportesScreen() {
+export default function GraficasScreen() {
+    const isFocused = useIsFocused();
     
-    const selectedMonthName = dataFija.mes;
-    const dataForSelectedMonth = dataFija;
+    // Logica para ocultar/mostrar barras de sistema
+    useEffect(() => {
+        const hideSystemBars = async () => {
+            if (Platform.OS === 'android') {
+                await StatusBar.setTranslucent(true);
+                await NavigationBar.setVisibilityAsync('hidden');
+                await NavigationBar.setBehaviorAsync('overlay');
+                StatusBar.setHidden(true);
+            } else {
+                StatusBar.setHidden(true, 'fade');
+            }
+        };
+    
+        const showSystemBars = async () => {
+            if (Platform.OS === 'android') {
+                await StatusBar.setTranslucent(false);
+                await NavigationBar.setVisibilityAsync('visible');
+                StatusBar.setHidden(false);
+            } else {
+                StatusBar.setHidden(false, 'fade');
+            }
+        };
+    
+        if (isFocused) {
+            hideSystemBars();
+        }
+    
+        return () => {
+            showSystemBars();
+        };
+    }, [isFocused]);
 
     return (
-        <View style={styles.contenedorPrincipal}>
-            <Text style={styles.tituloPrincipal}>Reportes Graficos</Text>
-            
-            <ScrollView contentContainerStyle={styles.contenidoScroll}>
+        <SafeAreaView style={styles.safearea}>
+            <View style={styles.contenedorPrincipal}>
+                <Text style={styles.tituloPrincipal}>Reportes Gráficos</Text>
                 
-                <MonthSelector /> 
+                <ScrollView contentContainerStyle={styles.contenidoScroll}>
+                    
+                    {/* Selector principal: Ingresos / Egresos / Historial */}
+                    <OpcionSelector opciones={opcionesReporte} />
 
-                <GraficoBarrasMensual mesData={dataForSelectedMonth} />
+                    {/* Gráfico y Selectores de Tiempo */}
+                    <GraficoPastelBoceto data={categoriasData} />
 
-                <GraficoCategoriaMensual 
-                    title="Ingresos por Categoría" 
-                    selectedMonth={selectedMonthName} 
-                    data={categoriasData} 
-                />
-
-                <GraficoCategoriaMensual 
-                    title="Egresos por Categoría" 
-                    selectedMonth={selectedMonthName} 
-                    data={categoriasData} 
-                />
-            </ScrollView>
-        </View>
+                </ScrollView>
+            </View>
+        </SafeAreaView>
     );
 }
 
-// Zona estilos
 const styles = StyleSheet.create({
+    safearea: {
+        flex: 1,
+        backgroundColor: '#f9f9f9',
+    },
     contenedorPrincipal: {
         flex: 1,
-        backgroundColor: '#E3F2FD', 
+        backgroundColor: '#f9f9f9',
+        paddingHorizontal: 20, // Aumentado el padding para centrar más el contenido
+        paddingTop: 15,
+    },
+    tituloPrincipal: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        textAlign: 'center',
     },
     contenidoScroll: {
-        paddingVertical: 10,
-        paddingHorizontal: 10,
-        alignItems: 'center',
-        paddingBottom: 40, 
+        paddingBottom: 20,
+        alignItems: 'center', // Centra el contenido horizontalmente
     },
-    tituloPrincipal: { 
-        fontSize: 30,
-        fontWeight: 'bold',
-        color: '#030213', 
-        marginTop: 40,
-        marginBottom: 20,
-        textAlign: 'center',
-    },
-    // Contenedores
-    containerCategoria: { 
-        width: screenWidth - 20,
-        backgroundColor: '#ffffff',
-        borderRadius: 10,
-        padding: 15,
-        elevation: 3,
-        shadowColor: '#030213', 
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        marginBottom: 20,
-    },
-    containerMes: { 
-        width: screenWidth - 20,
-        backgroundColor: '#ffffff',
-        borderRadius: 10,
-        padding: 15,
-        elevation: 3,
-        shadowColor: '#030213',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        marginBottom: 20,
-    },
-    // Por mes
-    tituloMes: { 
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#030213',
-        marginBottom: 10,
-        textAlign: 'center',
-    },
-    tituloCategoria: { 
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#030213',
-        marginBottom: 10,
-        textAlign: 'center',
-    },
-    selectorMes: {
-        paddingHorizontal: 10,
-        marginBottom: 15,
-    },
-    botonMes: { 
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 15,
-        marginHorizontal: 4,
-        backgroundColor: '#ffffff', 
-        justifyContent: 'center',
-        borderWidth: 1, 
-        borderColor: '#d1d1d1',
-    },
-    botonMesSeleccion: { 
-        backgroundColor: '#4A8FE7',
-        borderWidth: 1,
-        borderColor: '#4A8FE7',
-    },
-    textoBotonMes: { 
-        fontSize: 12, 
-        color: '#717182',
-        fontWeight: 'bold',
-    },
-    textoBotonMesSeleccion: { 
-        color: '#ffffff',
-    },
-    contenedorGraficoBarras: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingTop: 10,
-        marginBottom: 5,
-    },
-    contenedorBarrasCentrado: {
+    // Estilos para OpcionSelector (Ingresos/Egresos/Historial)
+    opcionSelectorContainer: {
         flexDirection: 'row',
-        alignItems: 'flex-end',
-        height: 160,
-        justifyContent: 'center',
+        marginBottom: 30,
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 8,
+    },
+    opcionBoton: {
+        flex: 1,
+        paddingVertical: 8,
+        alignItems: 'center',
+    },
+    opcionBotonSeleccionado: {
+        backgroundColor: 'transparent',
+        borderBottomWidth: 2, // Simula el borde inferior de selección
+        borderBottomColor: '#3498DB', // Color azul
+    },
+    opcionTexto: {
+        fontSize: 14,
+        color: '#555',
+        paddingHorizontal: 5,
+    },
+    opcionTextoSeleccionado: {
+        fontWeight: 'bold',
+        color: '#3498DB', // Color azul
+    },
+
+    // Estilos para GraficoPastelBoceto (Contenedor principal de la gráfica)
+    graficoBocetoContainer: {
         width: '100%',
-        paddingBottom: 5,
-    },
-    espacioBarras: {
+        backgroundColor: '#fff',
+        borderRadius: 10,
+        padding: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1.41,
+        elevation: 2,
         alignItems: 'center',
-        marginHorizontal: 15, 
     },
-    tamanoBarras: {
-        width: 40, 
-        borderRadius: 2,
-    },
-    lineaGrafica: {
-        width: '50%',
-        height: 2,
-        backgroundColor: '#d1d1d1', 
-        marginTop: 5,
-    },
-    etiquetaMesBarra: {
-        fontSize: 14, 
-        fontWeight: 'bold',
-        color: '#717182',
-        marginTop: 8,
-    },
-    leyendaBarras: {
+
+    // Estilos para TiempoSelector (Semana/Mes/Año)
+    tiempoSelectorContainer: {
         flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 20, 
-        marginTop: 5,
-    },
-    colorIngresosBarra: {
-        backgroundColor: '#FF5C6C',
-    },
-    colorEgresosBarra: {
-        backgroundColor: '#5DADE2',
-    },
-    // Cada par (círculo + texto)
-    itemLeyenda: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginHorizontal: 15, 
-    },
-    // El círculo de color
-    indicadorColorLeyenda: {
-        width: 14, 
-        height: 14,
-        borderRadius: 7, 
-        marginRight: 8,
-    },
-    // Texto de ingresos y egresos
-    textoLeyenda: {
-        fontSize: 16,
-        color: '#333', 
-        fontWeight: '500', 
-    },
-    // Por categoria
-    encabezadoCategoria: {
-        flexDirection: 'row',
-        justifyContent: 'flex-start', 
-        alignItems: 'center',
-        marginBottom: 10,
-        paddingHorizontal: 5,
-    },
-    botonOpcionMes: {
-        flexDirection: 'row',
-        paddingHorizontal: 10,
-        paddingVertical: 5,
+        marginBottom: 20,
         borderWidth: 1,
-        borderColor: '#d1d1d1',
-        borderRadius: 5,
+        borderColor: '#ccc',
+        borderRadius: 8,
+        width: '80%', // Limita el ancho del selector
+    },
+    tiempoBoton: {
+        flex: 1,
+        paddingVertical: 8,
         alignItems: 'center',
     },
-    contenidoCategoria: {
+    tiempoBotonSeleccionado: {
+        backgroundColor: '#3498DB', // Color azul
+        borderRadius: 7,
+    },
+    tiempoTexto: {
+        fontSize: 14,
+        color: '#555',
+    },
+    tiempoTextoSeleccionado: {
+        fontWeight: 'bold',
+        color: '#fff', // Texto blanco
+    },
+    
+    // Estilos de la Fecha
+    fechaTexto: {
+        fontSize: 16,
+        marginBottom: 20,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+
+    // Contenido del gráfico
+    contenidoGrafico: {
+        width: '100%',
         flexDirection: 'row',
-        justifyContent: 'space-between', 
         alignItems: 'center',
-        paddingHorizontal: 5,
+        justifyContent: 'space-around',
+        paddingHorizontal: 10,
     },
     contenedorGraficoPastel: {
-        width: '45%', 
+        width: '45%',
         alignItems: 'center',
         justifyContent: 'center',
     },
     graficoPastelSimulado: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        backgroundColor: 'transparent',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 15, 
+        width: 150,
+        height: 150,
+        borderRadius: 75,
+        borderWidth: 75, // Grosor para simular las secciones
+        // Los colores del borde se definen en el componente
     },
+    
+    // Estilos de la Leyenda
     leyendaCategoria: {
-        width: '50%', 
+        width: '55%',
         paddingLeft: 10,
     },
     itemLeyendaCategoria: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
-    },
-    textoPorcentaje: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        marginRight: 5,
-        width: 35,
-        textAlign: 'right',
-        color: '#717182', 
-    },
-    textoLeyendaCategoria: {
-        fontSize: 14,
-        color: '#717182', 
-        flex: 1,
+        marginBottom: 10,
     },
     indicadorColorLeyenda: {
         width: 10,
         height: 10,
         borderRadius: 5,
-        marginRight: 5,
+        marginRight: 8,
     },
+    textoPorcentaje: {
+        fontSize: 14,
+        marginRight: 5,
+        color: '#717182',
+    },
+    textoLeyendaCategoria: {
+        fontSize: 14,
+        color: '#333',
+    }
 });
