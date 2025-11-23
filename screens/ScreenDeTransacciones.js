@@ -26,7 +26,7 @@ const ScreenDeTransacciones = () => {
   const [mostrarModalFormulario, setMostrarModalFormulario] = useState(false);
   const [mostrarModalDetalles, setMostrarModalDetalles] = useState(false);
   const [transaccionSeleccionada, setTransaccionSeleccionada] = useState(null);
-  
+
   // Estados para filtros
   const [filtros, setFiltros] = useState({
     tipo: null,
@@ -35,10 +35,10 @@ const ScreenDeTransacciones = () => {
   });
 
   // Estado para resumen
-  const [resumen, setResumen] = useState({ 
-    ingresos: 0, 
-    gastos: 0, 
-    balance: 0 
+  const [resumen, setResumen] = useState({
+    ingresos: 0,
+    gastos: 0,
+    balance: 0
   });
 
   // Estado para formulario
@@ -60,11 +60,11 @@ const ScreenDeTransacciones = () => {
     const ingresos = transaccionesFiltradas
       .filter(t => t.tipo === 'ingreso')
       .reduce((suma, t) => suma + t.monto, 0);
-    
+
     const gastos = transaccionesFiltradas
       .filter(t => t.tipo === 'gasto')
       .reduce((suma, t) => suma + t.monto, 0);
-    
+
     setResumen({
       ingresos,
       gastos,
@@ -75,25 +75,25 @@ const ScreenDeTransacciones = () => {
   // --- FUNCIONES DE FILTRADO ---
   const aplicarFiltros = () => {
     let transaccionesFiltradasTemp = [...transacciones];
-    
+
     if (filtros.tipo) {
       transaccionesFiltradasTemp = transaccionesFiltradasTemp.filter(
         t => t.tipo === filtros.tipo
       );
     }
-    
+
     if (filtros.montoMinimo) {
       transaccionesFiltradasTemp = transaccionesFiltradasTemp.filter(
         t => t.monto >= parseFloat(filtros.montoMinimo)
       );
     }
-    
+
     if (filtros.montoMaximo) {
       transaccionesFiltradasTemp = transaccionesFiltradasTemp.filter(
         t => t.monto <= parseFloat(filtros.montoMaximo)
       );
     }
-    
+
     setTransaccionesFiltradas(transaccionesFiltradasTemp);
     setMostrarModalFiltros(false);
   };
@@ -128,14 +128,14 @@ const ScreenDeTransacciones = () => {
     }
 
     if (transaccionEditando) {
-      setTransacciones(prev => 
-        prev.map(t => 
-          t.id === transaccionEditando.id 
-            ? { 
-                ...datosFormulario, 
-                id: transaccionEditando.id,
-                monto: parseFloat(datosFormulario.monto)
-              } 
+      setTransacciones(prev =>
+        prev.map(t =>
+          t.id === transaccionEditando.id
+            ? {
+              ...datosFormulario,
+              id: transaccionEditando.id,
+              monto: parseFloat(datosFormulario.monto)
+            }
             : t
         )
       );
@@ -173,8 +173,8 @@ const ScreenDeTransacciones = () => {
       '¿Estás seguro de que quieres eliminar esta transacción?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Eliminar', 
+        {
+          text: 'Eliminar',
           style: 'destructive',
           onPress: () => {
             setTransacciones(prev => prev.filter(t => t.id !== idTransaccion));
@@ -196,7 +196,7 @@ const ScreenDeTransacciones = () => {
     <View style={estilos.encabezado}>
       <Text style={estilos.tituloApp}>Ahorra+ App</Text>
       <Text style={estilos.tituloPantalla}>Mis Transacciones</Text>
-      
+
       <View style={estilos.contenedorResumen}>
         <View style={estilos.itemResumen}>
           <Text style={estilos.etiquetaResumen}>Ingresos</Text>
@@ -225,14 +225,14 @@ const ScreenDeTransacciones = () => {
 
   const Controles = () => (
     <View style={estilos.controles}>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={estilos.botonFiltro}
         onPress={() => setMostrarModalFiltros(true)}
       >
         <Text style={estilos.textoBotonFiltro}>🔍 Filtrar</Text>
       </TouchableOpacity>
-      
-      <TouchableOpacity 
+
+      <TouchableOpacity
         style={estilos.botonAgregar}
         onPress={agregarTransaccion}
       >
@@ -245,7 +245,7 @@ const ScreenDeTransacciones = () => {
     <SafeAreaView style={estilos.contenedorSafeArea}>
       <View style={estilos.contenedor}>
         <StatusBar barStyle="dark-content" />
-        
+
         <Encabezado />
         <Controles />
 
@@ -253,8 +253,8 @@ const ScreenDeTransacciones = () => {
           data={transaccionesFiltradas}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <ElementoTransaccion 
-              transaccion={item} 
+            <ElementoTransaccion
+              transaccion={item}
               alPresionar={() => verDetalles(item)}
             />
           )}
@@ -279,7 +279,7 @@ const ScreenDeTransacciones = () => {
             <View style={estilos.modalContainer}>
               <View style={estilos.modalHeader}>
                 <Text style={estilos.modalTitle}>📋 Detalles</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => setMostrarModalDetalles(false)}
                   style={estilos.closeButton}
                 >
@@ -293,10 +293,10 @@ const ScreenDeTransacciones = () => {
                     <View style={estilos.detailIconSection}>
                       <View style={[
                         estilos.detailIconContainer,
-                        { 
-                          backgroundColor: transaccionSeleccionada.tipo === 'ingreso' 
-                            ? '#E0F2FE' 
-                            : '#FEE2E2' 
+                        {
+                          backgroundColor: transaccionSeleccionada.tipo === 'ingreso'
+                            ? '#E0F2FE'
+                            : '#FEE2E2'
                         }
                       ]}>
                         <Text style={estilos.detailIcon}>
@@ -308,10 +308,10 @@ const ScreenDeTransacciones = () => {
                       </Text>
                       <Text style={[
                         estilos.detailAmount,
-                        { 
-                          color: transaccionSeleccionada.tipo === 'ingreso' 
-                            ? '#0EA5E9' 
-                            : '#EF4444' 
+                        {
+                          color: transaccionSeleccionada.tipo === 'ingreso'
+                            ? '#0EA5E9'
+                            : '#EF4444'
                         }
                       ]}>
                         {transaccionSeleccionada.tipo === 'ingreso' ? '+' : '-'}${transaccionSeleccionada.monto}
@@ -340,14 +340,14 @@ const ScreenDeTransacciones = () => {
                     </View>
 
                     <View style={estilos.detailActions}>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={[estilos.actionButton, estilos.editButton]}
                         onPress={() => editarTransaccion(transaccionSeleccionada)}
                       >
                         <Text style={estilos.editButtonText}>✏️ Editar</Text>
                       </TouchableOpacity>
 
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={[estilos.actionButton, estilos.deleteButton]}
                         onPress={() => eliminarTransaccion(transaccionSeleccionada.id)}
                       >
@@ -375,7 +375,7 @@ const ScreenDeTransacciones = () => {
                 <Text style={estilos.modalTitle}>
                   {transaccionEditando ? '✏️ Editar' : '➕ Nueva'} Transacción
                 </Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => setMostrarModalFormulario(false)}
                   style={estilos.closeButton}
                 >
@@ -401,7 +401,7 @@ const ScreenDeTransacciones = () => {
                         💸 Gasto
                       </Text>
                     </TouchableOpacity>
-                    
+
                     <TouchableOpacity
                       style={[
                         estilos.typeButton,
@@ -444,9 +444,9 @@ const ScreenDeTransacciones = () => {
                           estilos.categoryButton,
                           datosFormulario.categoria === categoria.nombre && estilos.categoryButtonActive
                         ]}
-                        onPress={() => setDatosFormulario(prev => ({ 
-                          ...prev, 
-                          categoria: categoria.nombre 
+                        onPress={() => setDatosFormulario(prev => ({
+                          ...prev,
+                          categoria: categoria.nombre
                         }))}
                       >
                         <Text style={[
@@ -484,13 +484,13 @@ const ScreenDeTransacciones = () => {
                   />
                 </View>
 
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     estilos.saveButton,
-                    { 
-                      backgroundColor: datosFormulario.tipo === 'ingreso' 
-                        ? '#0EA5E9' 
-                        : '#EF4444' 
+                    {
+                      backgroundColor: datosFormulario.tipo === 'ingreso'
+                        ? '#0EA5E9'
+                        : '#EF4444'
                     }
                   ]}
                   onPress={guardarTransaccion}
@@ -516,7 +516,7 @@ const ScreenDeTransacciones = () => {
             <View style={estilos.modalContainer}>
               <View style={estilos.modalHeader}>
                 <Text style={estilos.modalTitle}>🔍 Filtrar Transacciones</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => setMostrarModalFiltros(false)}
                   style={estilos.closeButton}
                 >
@@ -592,13 +592,13 @@ const ScreenDeTransacciones = () => {
                 </View>
 
                 <View style={estilos.filterActions}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[estilos.filterActionButton, estilos.clearButton]}
                     onPress={limpiarFiltros}
                   >
                     <Text style={estilos.clearButtonText}>🔄 Limpiar Filtros</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[estilos.filterActionButton, estilos.applyButton]}
                     onPress={aplicarFiltros}
                   >

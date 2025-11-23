@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Switch, Platform, StatusBar } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import * as NavigationBar from 'expo-navigation-bar';
+import { registrarUsuario } from '../database/database';
 
 export default function RegisterScreen() {
   const navigation = useNavigation();
@@ -60,7 +61,7 @@ export default function RegisterScreen() {
     }
   };
 
-  const manejarRegistro = () => {
+  const manejarRegistro = async () => {
     // campos sin llenar
     if (!email.trim() || !password.trim() || !confirmar.trim()) {
       mostrarAlerta('ERROR', 'Por favor llena todos los campos');
@@ -85,8 +86,23 @@ export default function RegisterScreen() {
       return;
     }
 
-    // registro completo
-    mostrarAlerta('Bienvenido', 'Tu cuenta ha sido creada correctamente.\nYa puedes ingresar');
+    // 🗄️ GUARDAR EN SQLITE
+    const resultado = await registrarUsuario(email, password);
+
+    if (resultado.success) {
+      mostrarAlerta('Bienvenido', 'Tu cuenta ha sido creada correctamente.\nYa puedes ingresar');
+      // Limpiar campos
+      setEmail('');
+      setPassword('');
+      setConfirmar('');
+      setAceptarCondiciones(false);
+      // Navegar al login
+      setTimeout(() => {
+        navigation.navigate('Login');
+      }, 1500);
+    } else {
+      mostrarAlerta('ERROR', resultado.error || 'Error al crear la cuenta');
+    }
   };
 
   return (
@@ -135,9 +151,9 @@ export default function RegisterScreen() {
         <Text style={styles.buttonText}>Registrar</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity activeOpacity={1}>
+      <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate('Login')}>
         <Text style={styles.linkText}>¿Ya tienes cuenta? Inicia sesión</Text>
-        </TouchableOpacity>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }

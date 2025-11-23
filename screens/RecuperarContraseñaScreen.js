@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { obtenerUsuarioPorEmail, actualizarPassword } from '../database/database';
 
 export default function RecuperarContraseñaScreen() {
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
+  const [nuevaPassword, setNuevaPassword] = useState('');
+  const [confirmarPassword, setConfirmarPassword] = useState('');
+  const [emailVerificado, setEmailVerificado] = useState(false);
 
   const validarEmail = (correo) => {
     const regex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
     return regex.test(correo.trim());
   };
 
-  const manejarRecuperacion = () => {
+  const verificarEmail = async () => {
     if (email.trim() === '') {
       if (Platform.OS === 'web') {
         window.alert('Por favor ingresa tu correo electrónico.');
@@ -30,35 +34,123 @@ export default function RecuperarContraseñaScreen() {
       return;
     }
 
-    if (Platform.OS === 'web') {
-      window.alert(`Se ha enviado un enlace de recuperación a ${email}`);
+    // 🗄️ VERIFICAR SI EL EMAIL EXISTE EN LA BD
+    const usuario = await obtenerUsuarioPorEmail(email);
+
+    if (usuario) {
+      setEmailVerificado(true);
+      if (Platform.OS === 'web') {
+        window.alert('Email verificado. Ahora puedes crear una nueva contraseña.');
+      } else {
+        Alert.alert('Éxito', 'Email verificado. Ahora puedes crear una nueva contraseña.');
+      }
     } else {
-      Alert.alert('Correo enviado', `Se ha enviado un enlace de recuperación a ${email}`);
+      if (Platform.OS === 'web') {
+        window.alert('Este correo no está registrado.');
+      } else {
+        Alert.alert('Error', 'Este correo no está registrado.');
+      }
+    }
+  };
+
+  const cambiarPassword = async () => {
+    if (!nuevaPassword.trim() || !confirmarPassword.trim()) {
+      if (Platform.OS === 'web') {
+        window.alert('Por favor completa todos los campos.');
+      } else {
+        Alert.alert('Error', 'Por favor completa todos los campos.');
+      }
+      return;
     }
 
-    // Regresa al login
-    navigation.goBack(); 
+    if (nuevaPassword !== confirmarPassword) {
+      if (Platform.OS === 'web') {
+        window.alert('Las contraseñas no coinciden.');
+      } else {
+        Alert.alert('Error', 'Las contraseñas no coinciden.');
+      }
+      return;
+    }
+
+    if (nuevaPassword.length < 6) {
+      if (Platform.OS === 'web') {
+        window.alert('La contraseña debe tener al menos 6 caracteres.');
+      } else {
+        Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres.');
+      }
+      return;
+    }
+
+    // 🗄️ ACTUALIZAR PASSWORD EN SQLITE
+    const resultado = await actualizarPassword(email, nuevaPassword);
+
+    if (resultado.success) {
+      if (Platform.OS === 'web') {
+        window.alert('Contraseña actualizada correctamente. Ya puedes iniciar sesión.');
+      } else {
+        Alert.alert('Éxito', 'Contraseña actualizada correctamente. Ya puedes iniciar sesión.');
+      }
+      setTimeout(() => {
+        navigation.navigate('Login');
+      }, 1500);
+    } else {
+      if (Platform.OS === 'web') {
+        window.alert('Error al actualizar la contraseña.');
+      } else {
+        Alert.alert('Error', 'Error al actualizar la contraseña.');
+      }
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Recuperar Contraseña</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Ingresa tu correo electrónico"
-        placeholderTextColor="#999"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={setEmail}
-      />
+      {!emailVerificado ? (
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder="Ingresa tu correo electrónico"
+            placeholderTextColor="#999"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
 
-      <TouchableOpacity style={styles.button} onPress={manejarRecuperacion}>
-        <Text style={styles.buttonText}>Enviar enlace de recuperación</Text>
-      </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={verificarEmail}>
+            <Text style={styles.buttonText}>Verificar correo</Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        <>
+          <Text style={styles.subtitle}>Crear nueva contraseña para: {email}</Text>
 
-      <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TextInput
+            style={styles.input}
+            placeholder="Nueva contraseña"
+            placeholderTextColor="#999"
+            secureTextEntry
+            value={nuevaPassword}
+            onChangeText={setNuevaPassword}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Confirmar contraseña"
+            placeholderTextColor="#999"
+            secureTextEntry
+            value={confirmarPassword}
+            onChangeText={setConfirmarPassword}
+          />
+
+          <TouchableOpacity style={styles.button} onPress={cambiarPassword}>
+            <Text style={styles.buttonText}>Cambiar contraseña</Text>
+          </TouchableOpacity>
+        </>
+      )}
+
+      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
         <Text style={styles.linkText}>Volver al inicio de sesión</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -78,6 +170,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#030213',
     marginBottom: 30,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#030213',
+    marginBottom: 20,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
   input: {
     width: '90%',
