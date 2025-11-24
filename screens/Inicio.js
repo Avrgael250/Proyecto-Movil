@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Pla
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import * as NavigationBar from 'expo-navigation-bar';
+import BotonAgregarTransaccion from '../components/BotonAgregarTransaccion';
 
 export default function Inicio() {
   const navigation = useNavigation();
@@ -159,10 +160,8 @@ export default function Inicio() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Botón Flotante (FAB) - No funcional */}
-      <TouchableOpacity style={styles.fab}>
-        <Ionicons name="add" size={28} color="#ffffff" />
-      </TouchableOpacity>
+      {/* Botón Flotante (FAB) funcional */}
+      <BotonAgregarTransaccion />
 
     </SafeAreaView>
   );

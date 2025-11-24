@@ -26,6 +26,10 @@ export const inicializarDB = async () => {
         monto REAL NOT NULL,
         categoria TEXT NOT NULL,
         descripcion TEXT,
+        fecha_transaccion TEXT NOT NULL,
+        fecha_pago TEXT,
+        cuenta TEXT,
+        notas TEXT,
         fecha TEXT NOT NULL,
         fecha_creacion TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (usuario_email) REFERENCES usuarios(email)
@@ -171,15 +175,19 @@ export const cerrarSesion = async () => {
 export const guardarTransaccion = async (transaccion, usuarioEmail) => {
     try {
         const result = await db.runAsync(
-            `INSERT INTO transacciones (usuario_email, tipo, monto, categoria, descripcion, fecha) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO transacciones (usuario_email, tipo, monto, categoria, descripcion, fecha_transaccion, fecha_pago, cuenta, notas, fecha) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 usuarioEmail.toLowerCase(),
                 transaccion.tipo,
                 parseFloat(transaccion.monto),
                 transaccion.categoria,
                 transaccion.descripcion || '',
-                transaccion.fecha
+                transaccion.fecha_transaccion,
+                transaccion.fecha_pago || transaccion.fecha_transaccion,
+                transaccion.cuenta || 'Sin cuenta',
+                transaccion.notas || '',
+                transaccion.fecha_transaccion
             ]
         );
         return { success: true, id: result.lastInsertRowId };
@@ -463,4 +471,33 @@ export const obtenerPresupuestosPorCategoria = async (usuarioEmail, categoria) =
         console.error('Error al obtener presupuestos por categoría:', error);
         return [];
     }
+};
+
+// ============ CUENTAS Y CATEGORÍAS ============
+
+export const obtenerCuentas = async (usuarioEmail) => {
+    // Por ahora devolvemos cuentas predefinidas
+    // En el futuro se pueden obtener de la base de datos
+    return [
+        { id: 1, nombre: 'Efectivo' },
+        { id: 2, nombre: 'Cuenta de Cheques' },
+        { id: 3, nombre: 'Cuenta de Ahorros' },
+        { id: 4, nombre: 'Tarjeta de Crédito' },
+    ];
+};
+
+export const obtenerCategorias = async () => {
+    // Por ahora devolvemos categorías predefinidas
+    // En el futuro se pueden obtener de la base de datos
+    return [
+        { id: 1, nombre: 'Supermercado' },
+        { id: 2, nombre: 'Transporte' },
+        { id: 3, nombre: 'Servicios' },
+        { id: 4, nombre: 'Restaurantes' },
+        { id: 5, nombre: 'Entretenimiento' },
+        { id: 6, nombre: 'Salud' },
+        { id: 7, nombre: 'Educación' },
+        { id: 8, nombre: 'Ropa' },
+        { id: 9, nombre: 'Otros' },
+    ];
 };
