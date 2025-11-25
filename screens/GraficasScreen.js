@@ -3,43 +3,40 @@ import { View, Text, ScrollView, StyleSheet, Platform, Dimensions, StatusBar, To
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import * as NavigationBar from 'expo-navigation-bar';
+import { PieChart } from 'react-native-chart-kit';
 
-// Datos Opciones de Reporte
-const opcionesReporte = [ 
-    'Ingresos', 
-    'Egresos', 
-    'Historial', 
+const { width } = Dimensions.get('window');
+
+const opcionesReporte = ['Ingresos', 'Egresos', 'Historial'];
+const opcionesTiempo = ['Semana', 'Mes', 'Año'];
+
+const dataEgresosBase = [
+    { name: 'Comida', population: 40, color: '#F4D03F' }, 
+    { name: 'Transporte', population: 28, color: '#5DADE2' },
+    { name: 'Servicios', population: 22, color: '#EC7063' },
+    { name: 'Otros', population: 10, color: '#FF9800' },
 ];
 
-// Datos Opciones de Tiempo
-const opcionesTiempo = [
-    'Semana',
-    'Mes',
-    'Año',
+const dataIngresosBase = [
+    { name: 'Salario', population: 72, color: '#5DADE2' },
+    { name: 'Inversiones', population: 20, color: '#F4D03F' },
+    { name: 'Extras', population: 8, color: '#EC7063' },
 ];
 
-// Datos para la gráfica pastel
-const categoriasData = [
-    { name: 'Comida', percentage: '40%', color: '#F4D03F' }, // Amarillo
-    { name: 'Transporte', percentage: '28%', color: '#5DADE2' }, // Azul
-    { name: 'Servicios', percentage: '22%', color: '#EC7063' }, // Rojo
-    { name: 'Otros', percentage: '10%', color: '#f5ae2cff' }, // Naranja 
-];
-
-// Selector de Opciones (Ingresos, Egresos, Historial)
 const OpcionSelector = ({ opciones, selected, onSelect }) => (
     <View style={styles.opcionSelectorContainer}>
-        {opciones.map((opcion, index) => (
+        {opciones.map((opcion) => (
             <TouchableOpacity
-                key={index}
+                key={opcion}
+                onPress={() => onSelect(opcion)}
                 style={[
                     styles.opcionBoton,
-                    index === 0 && styles.opcionBotonSeleccionado // Simular 'Ingresos' como seleccionado
+                    selected === opcion && styles.opcionBotonSeleccionado
                 ]}
             >
                 <Text style={[
                     styles.opcionTexto,
-                    index === 0 && styles.opcionTextoSeleccionado
+                    selected === opcion && styles.opcionTextoSeleccionado
                 ]}>
                     {opcion}
                 </Text>
@@ -48,20 +45,20 @@ const OpcionSelector = ({ opciones, selected, onSelect }) => (
     </View>
 );
 
-// Selector de Tiempo (Semana, Mes, Año)
 const TiempoSelector = ({ opciones, selected, onSelect }) => (
     <View style={styles.tiempoSelectorContainer}>
-        {opciones.map((opcion, index) => (
+        {opciones.map((opcion) => (
             <TouchableOpacity
-                key={index}
+                key={opcion}
+                onPress={() => onSelect(opcion)}
                 style={[
                     styles.tiempoBoton,
-                    index === 1 && styles.tiempoBotonSeleccionado // Simular Mes seleccionado
+                    selected === opcion && styles.tiempoBotonSeleccionado,
                 ]}
             >
                 <Text style={[
                     styles.tiempoTexto,
-                    index === 1 && styles.tiempoTextoSeleccionado
+                    selected === opcion && styles.tiempoTextoSeleccionado
                 ]}>
                     {opcion}
                 </Text>
@@ -70,51 +67,101 @@ const TiempoSelector = ({ opciones, selected, onSelect }) => (
     </View>
 );
 
-// Gráfico de Pastel y Leyenda
-const GraficoPastelBoceto = ({ title, selectedDate, data }) => {
-    // Se extraen los colores para simular el gráfico de pastel con bordes
-    const [color1, color2, color3, color4] = data.map(d => d.color);
+const GraficoPastelFuncional = ({ data, tiempoSeleccionado, onSelectTiempo }) => {
+    
+    // Lógica para obtener el texto de la fecha según el filtro seleccionado
+    const getDynamicDateText = (selectedTime) => {
+        switch (selectedTime) {
+            case 'Semana':
+                return '24 Nov - 30 Nov 2025';
+            case 'Mes':
+                return 'Noviembre de 2025';
+            case 'Año':
+                return '2025';
+            default:
+                return 'Noviembre de 2025';
+        }
+    };
+    
+    const dateText = getDynamicDateText(tiempoSeleccionado);
+    
+    const chartConfig = {
+        backgroundGradientFrom: '#FFFFFF',
+        backgroundGradientTo: '#FFFFFF',
+        color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+    };
+
+    const chartSize = width * 0.8; 
+    const chartHeight = chartSize * 0.8;
+    const chartRadius = chartSize / 2;
 
     return (
         <View style={styles.graficoBocetoContainer}>
-            <TiempoSelector opciones={opcionesTiempo} />
+            <TiempoSelector 
+                opciones={opcionesTiempo} 
+                selected={tiempoSeleccionado}
+                onSelect={onSelectTiempo}
+            />
 
-            <Text style={styles.fechaTexto}>Noviembre de 2025</Text>
+            <Text style={styles.fechaTexto}>{dateText}</Text>
             
-            <View style={styles.contenidoGrafico}>
-                {/* Contenedor del Gráfico de Pastel Simulado */}
-                <View style={styles.contenedorGraficoPastel}>
-                    <View style={[
-                        styles.graficoPastelSimulado, 
-                        {
-                            // Estos bordes simulan las secciones del pastel
-                            borderColor: color1,
-                            borderRightColor: color2,
-                            borderBottomColor: color3,
-                            borderTopColor: color4,
-                        }
-                    ]} />
+            {data.length > 0 ? (
+                <View style={styles.chartWrapper}>
+                    <PieChart
+                        data={data}
+                        width={chartSize} 
+                        height={chartHeight}
+                        chartConfig={chartConfig}
+                        accessor="population"
+                        backgroundColor="transparent"
+                        paddingLeft="0" 
+                        center={[chartSize / 4, 0]}
+                        absolute
+                        radius={chartRadius} 
+                        hasLegend={false}
+                    />
                 </View>
+            ) : (
+                <View style={styles.noDataContainer}>
+                    <Text style={styles.historialTexto}>No hay datos de gráfica para este reporte.</Text>
+                </View>
+            )}
 
-                {/* Leyenda de Categorías */}
-                <View style={styles.leyendaCategoria}>
-                    {data.map((item, index) => (
-                        <View key={index} style={styles.itemLeyendaCategoria}>
-                            <View style={[styles.indicadorColorLeyenda, { backgroundColor: item.color, marginRight: 8 }]} />
-                            <Text style={styles.textoPorcentaje}> ejemplo %</Text>
-                            <Text style={styles.textoLeyendaCategoria}>{item.name}</Text>
-                        </View>
-                    ))}
-                </View>
+            <View style={styles.leyendaCategoria}>
+                {data.map((item, index) => (
+                    <View key={index} style={styles.itemLeyendaCategoria}>
+                        <View style={[styles.indicadorColorLeyenda, { backgroundColor: item.color }]} /> 
+                        <Text style={styles.textoPorcentaje}>{item.population}%</Text> 
+                        <Text style={styles.textoLeyendaCategoria}>{item.name}</Text>
+                    </View>
+                ))}
             </View>
         </View>
     );
 };
 
+
 export default function GraficasScreen() {
     const isFocused = useIsFocused();
     
-    // Logica para ocultar/mostrar barras de sistema
+    const [reporteSeleccionado, setReporteSeleccionado] = useState('Egresos');
+    const [tiempoSeleccionado, setTiempoSeleccionado] = useState('Mes'); 
+    const [currentData, setCurrentData] = useState(dataEgresosBase); 
+    // Usamos este estado auxiliar para saber qué reporte se estaba viendo antes de ir a Historial
+    const [lastReporte, setLastReporte] = useState('Egresos'); 
+
+    useEffect(() => {
+        if (reporteSeleccionado === 'Ingresos') {
+            setCurrentData(dataIngresosBase);
+            setLastReporte('Ingresos');
+        } else if (reporteSeleccionado === 'Egresos') {
+            setCurrentData(dataEgresosBase);
+            setLastReporte('Egresos');
+        } else if (reporteSeleccionado === 'Historial') {
+            setCurrentData([]); 
+        }
+    }, [reporteSeleccionado]);
+
     useEffect(() => {
         const hideSystemBars = async () => {
             if (Platform.OS === 'android') {
@@ -146,18 +193,37 @@ export default function GraficasScreen() {
         };
     }, [isFocused]);
 
+    const isHistorial = reporteSeleccionado === 'Historial';
+
     return (
         <SafeAreaView style={styles.safearea}>
             <View style={styles.contenedorPrincipal}>
                 <Text style={styles.tituloPrincipal}>Reportes Gráficos</Text>
                 
+                <OpcionSelector 
+                    opciones={opcionesReporte} 
+                    selected={reporteSeleccionado}
+                    onSelect={setReporteSeleccionado}
+                />
+
                 <ScrollView contentContainerStyle={styles.contenidoScroll}>
                     
-                    {/* Selector principal: Ingresos / Egresos / Historial */}
-                    <OpcionSelector opciones={opcionesReporte} />
-
-                    {/* Gráfico y Selectores de Tiempo */}
-                    <GraficoPastelBoceto data={categoriasData} />
+                    {!isHistorial ? (
+                        <GraficoPastelFuncional 
+                            data={currentData}
+                            tiempoSeleccionado={tiempoSeleccionado}
+                            onSelectTiempo={setTiempoSeleccionado}
+                        />
+                    ) : (
+                        <View style={styles.historialContainer}>
+                            <Text style={styles.historialTexto}>
+                                Aquí se mostraría una tabla o lista de transacciones.
+                            </Text>
+                            <Text style={styles.historialSubTexto}>
+                                Tipo: "{lastReporte}" || Tiempo: "{tiempoSeleccionado}"
+                            </Text>
+                        </View>
+                    )}
 
                 </ScrollView>
             </View>
@@ -165,15 +231,17 @@ export default function GraficasScreen() {
     );
 }
 
+// --- ZONA DE ESTILOS ---
+
 const styles = StyleSheet.create({
     safearea: {
         flex: 1,
-        backgroundColor: '#f9f9f9',
+        backgroundColor: '#E3F2FD',
     },
     contenedorPrincipal: {
         flex: 1,
-        backgroundColor: '#f9f9f9',
-        paddingHorizontal: 20, // Aumentado el padding para centrar más el contenido
+        backgroundColor: '#E3F2FD',
+        paddingHorizontal: 20,
         paddingTop: 15,
     },
     tituloPrincipal: {
@@ -181,18 +249,19 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginBottom: 20,
         textAlign: 'center',
+        color: '#030213',
     },
     contenidoScroll: {
-        paddingBottom: 20,
-        alignItems: 'center', // Centra el contenido horizontalmente
+        paddingBottom: 80,
+        alignItems: 'center',
     },
-    // Estilos para OpcionSelector (Ingresos/Egresos/Historial)
     opcionSelectorContainer: {
         flexDirection: 'row',
         marginBottom: 30,
         borderWidth: 1,
-        borderColor: '#ccc',
+        borderColor: '#666666',
         borderRadius: 8,
+        backgroundColor: '#FFFFFF',
     },
     opcionBoton: {
         flex: 1,
@@ -200,99 +269,86 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     opcionBotonSeleccionado: {
-        backgroundColor: 'transparent',
-        borderBottomWidth: 2, // Simula el borde inferior de selección
-        borderBottomColor: '#3498DB', // Color azul
+        borderBottomWidth: 2, 
+        borderBottomColor: '#4A8FE7',
     },
     opcionTexto: {
         fontSize: 14,
-        color: '#555',
+        color: '#666666',
         paddingHorizontal: 5,
     },
     opcionTextoSeleccionado: {
         fontWeight: 'bold',
-        color: '#3498DB', // Color azul
+        color: '#4A8FE7', 
     },
 
-    // Estilos para GraficoPastelBoceto (Contenedor principal de la gráfica)
     graficoBocetoContainer: {
         width: '100%',
-        backgroundColor: '#fff',
+        backgroundColor: '#FFFFFF',
         borderRadius: 10,
         padding: 15,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1.41,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
         elevation: 2,
         alignItems: 'center',
     },
 
-    // Estilos para TiempoSelector (Semana/Mes/Año)
     tiempoSelectorContainer: {
         flexDirection: 'row',
         marginBottom: 20,
         borderWidth: 1,
-        borderColor: '#ccc',
+        borderColor: '#666666',
         borderRadius: 8,
-        width: '80%', // Limita el ancho del selector
+        width: '100%',
+        overflow: 'hidden',
     },
     tiempoBoton: {
         flex: 1,
         paddingVertical: 8,
         alignItems: 'center',
+        backgroundColor: '#FFFFFF',
     },
     tiempoBotonSeleccionado: {
-        backgroundColor: '#3498DB', // Color azul
-        borderRadius: 7,
+        backgroundColor: '#4A8FE7',
     },
     tiempoTexto: {
         fontSize: 14,
-        color: '#555',
+        color: '#666666',
     },
     tiempoTextoSeleccionado: {
         fontWeight: 'bold',
-        color: '#fff', // Texto blanco
+        color: '#fff', 
     },
     
-    // Estilos de la Fecha
     fechaTexto: {
         fontSize: 16,
-        marginBottom: 20,
+        marginBottom: 10,
         fontWeight: 'bold',
-        color: '#333',
+        color: '#030213',
+        textAlign: 'center',
     },
 
-    // Contenido del gráfico
-    contenidoGrafico: {
-        width: '100%',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        paddingHorizontal: 10,
-    },
-    contenedorGraficoPastel: {
-        width: '45%',
-        alignItems: 'center',
+    chartWrapper: {
+        alignItems: 'center', 
         justifyContent: 'center',
+        marginBottom: 20,
+        width: '100%',
     },
-    graficoPastelSimulado: {
-        width: 150,
-        height: 150,
-        borderRadius: 75,
-        borderWidth: 75, // Grosor para simular las secciones
-        // Los colores del borde se definen en el componente
-    },
-    
-    // Estilos de la Leyenda
+
     leyendaCategoria: {
-        width: '55%',
-        paddingLeft: 10,
+        width: '100%',
+        paddingTop: 10,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'flex-start',
     },
     itemLeyendaCategoria: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 10,
+        width: '50%',
     },
     indicadorColorLeyenda: {
         width: 10,
@@ -303,10 +359,32 @@ const styles = StyleSheet.create({
     textoPorcentaje: {
         fontSize: 14,
         marginRight: 5,
-        color: '#717182',
+        fontWeight: 'bold',
+        color: '#030213',
     },
     textoLeyendaCategoria: {
         fontSize: 14,
-        color: '#333',
-    }
+        color: '#666666',
+    },
+
+    historialContainer: {
+        width: '100%',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 10,
+        padding: 20,
+        alignItems: 'center',
+        minHeight: 200,
+        justifyContent: 'center',
+    },
+    historialTexto: {
+        fontSize: 16,
+        color: '#030213',
+        textAlign: 'center',
+        marginBottom: 10,
+    },
+    historialSubTexto: {
+        fontSize: 14,
+        color: '#666666',
+        textAlign: 'center',
+    },
 });
