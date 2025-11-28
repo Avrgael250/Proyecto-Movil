@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { validarCredenciales, guardarSesion } from '../database/database';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
@@ -12,7 +13,7 @@ export default function LoginScreen() {
     return regex.test(correo.trim());
   };
 
-  const manejarLogin = () => {
+  const manejarLogin = async () => {
     if (email.trim() === '' || password.trim() === '') {
       if (Platform.OS === 'web') {
         window.alert('ERROR: llena todos los campos antes de continuar');
@@ -31,10 +32,33 @@ export default function LoginScreen() {
       return;
     }
 
-    if (Platform.OS === 'web') {
-      window.alert('BIENVENIDO ' + email);
+    // 🗄️ VALIDAR CREDENCIALES EN SQLITE
+    const usuario = await validarCredenciales(email, password);
+
+    if (usuario) {
+      await guardarSesion(usuario.email);
+
+      // 👀 VER DATOS EN CONSOLA
+      console.log('\n========== LOGIN EXITOSO ==========');
+      console.log('✅ Usuario:', usuario.email);
+      console.log('📅 Registro:', usuario.fecha_registro);
+      console.log('===================================\n');
+
+      if (Platform.OS === 'web') {
+        window.alert('BIENVENIDO ' + usuario.email);
+      } else {
+        Alert.alert('BIENVENIDO', usuario.email);
+      }
+      // Navegar a Home
+      setTimeout(() => {
+        navigation.navigate('Home');
+      }, 1000);
     } else {
-      Alert.alert('BIENVENIDO', email);
+      if (Platform.OS === 'web') {
+        window.alert('ERROR: Correo o contraseña incorrectos');
+      } else {
+        Alert.alert('ERROR', 'Correo o contraseña incorrectos');
+      }
     }
   };
 
@@ -66,12 +90,12 @@ export default function LoginScreen() {
       </TouchableOpacity>
 
       {/* registro */}
-      <TouchableOpacity onPress={() => navigation.navigate('Registro')}>
+      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
         <Text style={styles.linkText}>¿No tienes una cuenta? Crear cuenta</Text>
       </TouchableOpacity>
 
       {/*olvido de contraseña */}
-      <TouchableOpacity onPress={() => navigation.navigate('RecuperarContraseñaScreen')}>
+      <TouchableOpacity onPress={() => alert('Funcionalidad próximamente')}>
         <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
       </TouchableOpacity>
     </SafeAreaView>

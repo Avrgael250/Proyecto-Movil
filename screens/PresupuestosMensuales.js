@@ -1,14 +1,55 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, StatusBar, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, StatusBar, Modal, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import * as NavigationBar from 'expo-navigation-bar';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import BotonAgregarTransaccion from '../components/BotonAgregarTransaccion';
+import {
+    guardarPresupuesto,
+    obtenerPresupuestosPorMes,
+    obtenerPresupuestoPorCategoria,
+    actualizarPresupuesto,
+    eliminarPresupuesto,
+    obtenerSesion,
+    obtenerTransaccionesDelMes,
+    actualizarTransaccion,
+    eliminarTransaccion
+} from '../database/database';
+
+const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 export default function PresupuestosMensuales() {
     const navigation = useNavigation();
     const isFocused = useIsFocused();
-    const mesActual = 'Nov';
-    const anioActual = 2025;
+
+    const [mesIndex, setMesIndex] = useState(new Date().getMonth());
+    const [anio, setAnio] = useState(new Date().getFullYear());
+    const [presupuestos, setPresupuestos] = useState([]);
+    const [transaccionesPorCategoria, setTransaccionesPorCategoria] = useState({});
+    const [gastosPorCategoria, setGastosPorCategoria] = useState({});
+    const [usuarioEmail, setUsuarioEmail] = useState(null);
+
+    // Modal de detalle de categoría (primera imagen)
+    const [modalDetalle, setModalDetalle] = useState(false);
+    const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
+    const [limiteGasto, setLimiteGasto] = useState('');
+
+    // Modal de establecer límite
+    const [modalEstablecerLimite, setModalEstablecerLimite] = useState(false);
+    const [montoLimite, setMontoLimite] = useState('');
+
+    // Modal de edición de transacción (segunda imagen)
+    const [modalEditar, setModalEditar] = useState(false);
+    const [transaccionSeleccionada, setTransaccionSeleccionada] = useState(null);
+    const [monto, setMonto] = useState('');
+    const [descripcion, setDescripcion] = useState('');
+    const [fechaTransaccion, setFechaTransaccion] = useState(new Date());
+    const [fechaPago, setFechaPago] = useState(new Date());
+    const [cuenta, setCuenta] = useState('');
+    const [notas, setNotas] = useState('');
+    const [mostrarDatePicker, setMostrarDatePicker] = useState(false);
+    const [tipoFecha, setTipoFecha] = useState('transaccion');
 
     useEffect(() => {
         const hideSystemBars = async () => {
@@ -40,177 +81,614 @@ export default function PresupuestosMensuales() {
             showSystemBars();
         };
     }, [isFocused]);
-    const [modalVisible, setModalVisible] = useState(false);
+
+    useEffect(() => {
+        const cargarSesion = async () => {
+            const sesion = await obtenerSesion();
+            if (sesion) {
+                setUsuarioEmail(sesion.usuario_email);
+            }
+        };
+        cargarSesion();
+    }, []);
+
+    useEffect(() => {
+        if (usuarioEmail) {
+            cargarDatos();
+        }
+    }, [usuarioEmail, mesIndex, anio]);
+
+    const cargarDatos = async () => {
+        const mes = (mesIndex + 1).toString();
+
+        // Obtener presupuestos del mes
+        const presupuestosDB = await obtenerPresupuestosPorMes(usuarioEmail, mes, anio.toString());
+        setPresupuestos(presupuestosDB);
+
+        // Obtener transacciones del mes
+        const transaccionesDB = await obtenerTransaccionesDelMes(usuarioEmail, mes, anio.toString());
+
+        // Organizar transacciones y gastos por categoría
+        const transPorCat = {};
+        const gastosPorCat = {};
+
+        transaccionesDB.forEach(t => {
+            if (t.tipo === 'Egreso') {
+                if (!transPorCat[t.categoria]) {
+                    transPorCat[t.categoria] = [];
+                }
+                transPorCat[t.categoria].push(t);
+                gastosPorCat[t.categoria] = (gastosPorCat[t.categoria] || 0) + t.monto;
+            }
+        });
+
+        setTransaccionesPorCategoria(transPorCat);
+        setGastosPorCategoria(gastosPorCat);
+    };
+
+    const cambiarMes = (direccion) => {
+        let nuevoMes = mesIndex + direccion;
+        let nuevoAnio = anio;
+
+        if (nuevoMes > 11) {
+            nuevoMes = 0;
+            nuevoAnio++;
+        } else if (nuevoMes < 0) {
+            nuevoMes = 11;
+            nuevoAnio--;
+        }
+
+        setMesIndex(nuevoMes);
+        setAnio(nuevoAnio);
+    };
+
+    const abrirDetalleCategoria = (categoria) => {
+        setCategoriaSeleccionada(categoria);
+        const presupuestoCat = presupuestos.find(p => p.categoria === categoria);
+        if (presupuestoCat) {
+            setLimiteGasto(presupuestoCat.monto_limite.toString());
+        } else {
+            setLimiteGasto('');
+        }
+        setModalDetalle(true);
+    };
+
+    const abrirModalEstablecerLimite = () => {
+        const presupuestoCat = presupuestos.find(p => p.categoria === categoriaSeleccionada);
+        if (presupuestoCat) {
+            setMontoLimite(presupuestoCat.monto_limite.toString());
+        } else {
+            setMontoLimite('');
+        }
+        setModalEstablecerLimite(true);
+    };
+
+    const aplicarLimiteSoloPeriodo = async () => {
+        if (!montoLimite || parseFloat(montoLimite) <= 0) {
+            Alert.alert('Error', 'Ingresa un límite válido');
+            return;
+        }
+
+        const mes = (mesIndex + 1).toString();
+        const presupuestoCat = presupuestos.find(p => p.categoria === categoriaSeleccionada);
+
+        if (presupuestoCat) {
+            const presupuestoActualizado = {
+                categoria: categoriaSeleccionada,
+                monto_limite: parseFloat(montoLimite),
+                mes: mes,
+                año: anio.toString()
+            };
+            await actualizarPresupuesto(presupuestoCat.id, presupuestoActualizado);
+        } else {
+            const nuevoPresupuesto = {
+                categoria: categoriaSeleccionada,
+                monto_limite: parseFloat(montoLimite),
+                mes: mes,
+                año: anio.toString()
+            };
+            await guardarPresupuesto(nuevoPresupuesto, usuarioEmail);
+        }
+
+        setModalEstablecerLimite(false);
+        Alert.alert('Éxito', 'Límite establecido para este período');
+        cargarDatos();
+    };
+
+    const aplicarLimiteTodosPeriodos = async () => {
+        if (!montoLimite || parseFloat(montoLimite) <= 0) {
+            Alert.alert('Error', 'Ingresa un límite válido');
+            return;
+        }
+
+        setModalEstablecerLimite(false);
+        Alert.alert('Éxito', 'Límite establecido para todos los períodos');
+        cargarDatos();
+    };
+
+    const abrirEdicionTransaccion = (transaccion) => {
+        setTransaccionSeleccionada(transaccion);
+        setMonto(transaccion.monto.toString());
+        setDescripcion(transaccion.descripcion || 'Gasto');
+        setFechaTransaccion(new Date(transaccion.fecha + 'T00:00:00'));
+        setFechaPago(new Date(transaccion.fecha + 'T00:00:00'));
+        setCuenta('Efectivo');
+        setNotas('');
+        setModalEditar(true);
+    };
+
+    const guardarCambiosTransaccion = async () => {
+        if (!transaccionSeleccionada) return;
+
+        const transaccionActualizada = {
+            tipo: transaccionSeleccionada.tipo,
+            monto: parseFloat(monto),
+            categoria: transaccionSeleccionada.categoria,
+            descripcion: descripcion,
+            fecha: fechaTransaccion.toISOString().split('T')[0]
+        };
+
+        const resultado = await actualizarTransaccion(transaccionSeleccionada.id, transaccionActualizada);
+        if (resultado.success) {
+            Alert.alert('Éxito', 'Transacción actualizada');
+            setModalEditar(false);
+            cargarDatos();
+        } else {
+            Alert.alert('Error', 'No se pudo actualizar');
+        }
+    };
+
+    const eliminarTransaccionSeleccionada = async () => {
+        if (!transaccionSeleccionada) return;
+
+        Alert.alert(
+            'Confirmar',
+            '¿Deseas eliminar esta transacción?',
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Eliminar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const resultado = await eliminarTransaccion(transaccionSeleccionada.id);
+                        if (resultado.success) {
+                            Alert.alert('Éxito', 'Transacción eliminada');
+                            setModalEditar(false);
+                            setModalDetalle(false);
+                            cargarDatos();
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const onChangeFecha = (event, selectedDate) => {
+        setMostrarDatePicker(false);
+        if (selectedDate) {
+            if (tipoFecha === 'transaccion') {
+                setFechaTransaccion(selectedDate);
+            } else {
+                setFechaPago(selectedDate);
+            }
+        }
+    };
+
+    const calcularTotales = () => {
+        let totalLimite = 0;
+        let totalGastado = 0;
+
+        presupuestos.forEach(p => {
+            totalLimite += p.monto_limite;
+            totalGastado += gastosPorCategoria[p.categoria] || 0;
+        });
+
+        return { totalLimite, totalGastado, restante: totalLimite - totalGastado };
+    };
+
+    const totales = calcularTotales();
+    const porcentajeGastado = totales.totalLimite > 0 ? Math.round((totales.totalGastado / totales.totalLimite) * 100) : 0;
 
     return (
-    <View style={styles.container}>
-      {/* Header Superior - Barra gris con título */}
-        <View style={styles.topBar}>
-            <Text style={styles.topBarTitle}>Presupuesto</Text>
+        <View style={styles.container}>
+            {/* Header Superior - Barra gris con título */}
+            <View style={styles.topBar}>
+                <Text style={styles.topBarTitle}>Presupuesto</Text>
+            </View>
+
+            {/* Header Principal - Mes y controles */}
+            <View style={styles.header}>
+                <View style={styles.headerLeft}>
+                    <Text style={styles.mesAnio}>{MESES[mesIndex]} {anio}</Text>
+                </View>
+
+                <View style={styles.headerRight}>
+                    <TouchableOpacity
+                        style={styles.headerIcon}
+                        onPress={() => cambiarMes(-1)}
+                    >
+                        <Ionicons name="chevron-back" size={20} color="#030213" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.headerIcon}
+                        onPress={() => cambiarMes(1)}
+                    >
+                        <Ionicons name="chevron-forward" size={20} color="#030213" />
+                    </TouchableOpacity>
+
+                </View>
+            </View>
+
+            {/* Área de Contenido Principal */}
+            <ScrollView style={styles.contentArea} contentContainerStyle={styles.contentContainer}>
+                {/* Círculo de progreso y monto restante */}
+                <View style={styles.budgetSummary}>
+                    <View style={styles.progressRing}>
+                        <Text style={styles.percentageText}>{porcentajeGastado}%</Text>
+                    </View>
+                    <View style={styles.remainingAmount}>
+                        <Text style={styles.remainingLabel}>Restante</Text>
+                        <Text style={styles.remainingValue}>${totales.restante.toFixed(2)}</Text>
+                        <Text style={styles.spentText}>Gastado ${totales.totalGastado.toFixed(2)} de <Text style={styles.totalBudget}>${totales.totalLimite.toFixed(2)}</Text></Text>
+                    </View>
+                </View>
+
+                {/* Categorías de presupuesto */}
+                <View style={styles.categories}>
+                    <TouchableOpacity
+                        style={styles.categoryItem}
+                        onPress={() => abrirDetalleCategoria('Supermercado')}
+                    >
+                        <View style={[styles.categoryIcon, { backgroundColor: '#E3F2FD' }]}>
+                            <Ionicons name="cart" size={24} color="#2196F3" />
+                        </View>
+                        <View style={styles.categoryInfo}>
+                            <View style={styles.categoryHeader}>
+                                <Text style={styles.categoryName}>Supermercado</Text>
+                                <Text style={styles.categoryAmount}>${(gastosPorCategoria['Supermercado'] || 0).toFixed(2)}</Text>
+                            </View>
+                            <View style={styles.categoryProgress}>
+                                <View style={[styles.progressBar, { backgroundColor: '#2196F3', width: '42.5%' }]} />
+                            </View>
+                            <Text style={styles.transactionCount}>{transaccionesPorCategoria['Supermercado']?.length || 0} transacciones</Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.categoryItem}
+                        onPress={() => abrirDetalleCategoria('Transporte')}
+                    >
+                        <View style={[styles.categoryIcon, { backgroundColor: '#FFF3E0' }]}>
+                            <Ionicons name="car" size={24} color="#FF9800" />
+                        </View>
+                        <View style={styles.categoryInfo}>
+                            <View style={styles.categoryHeader}>
+                                <Text style={styles.categoryName}>Transporte</Text>
+                                <Text style={styles.categoryAmount}>${(gastosPorCategoria['Transporte'] || 0).toFixed(2)}</Text>
+                            </View>
+                            <View style={styles.categoryProgress}>
+                                <View style={[styles.progressBar, { backgroundColor: '#FF9800', width: '30%' }]} />
+                            </View>
+                            <Text style={styles.transactionCount}>{transaccionesPorCategoria['Transporte']?.length || 0} transacciones</Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.categoryItem}
+                        onPress={() => abrirDetalleCategoria('Servicios')}
+                    >
+                        <View style={[styles.categoryIcon, { backgroundColor: '#F3E5F5' }]}>
+                            <Ionicons name="phone-portrait" size={24} color="#9C27B0" />
+                        </View>
+                        <View style={styles.categoryInfo}>
+                            <View style={styles.categoryHeader}>
+                                <Text style={styles.categoryName}>Servicios</Text>
+                                <Text style={styles.categoryAmount}>${(gastosPorCategoria['Servicios'] || 0).toFixed(2)}</Text>
+                            </View>
+                            <View style={styles.categoryProgress}>
+                                <View style={[styles.progressBar, { backgroundColor: '#9C27B0', width: '22.5%' }]} />
+                            </View>
+                            <Text style={styles.transactionCount}>{transaccionesPorCategoria['Servicios']?.length || 0} transacciones</Text>
+                        </View>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Modal de Detalle de Categoría (Primera Imagen) */}
+                <Modal
+                    visible={modalDetalle}
+                    animationType="slide"
+                    statusBarTranslucent
+                >
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalHeader}>
+                            <TouchableOpacity
+                                style={styles.backButton}
+                                onPress={() => setModalDetalle(false)}
+                            >
+                                <Ionicons name="arrow-back" size={28} color="#000" />
+                            </TouchableOpacity>
+                            <Text style={styles.modalTitle}>{categoriaSeleccionada}</Text>
+                            <Text style={styles.mesAnioModal}>{MESES[mesIndex].toLowerCase()} {anio}</Text>
+                        </View>
+
+                        <ScrollView style={styles.modalContent}>
+                            {/* Sección de límite */}
+                            <View style={styles.limiteSection}>
+                                <Text style={styles.limiteLabel}>Límite de gasto</Text>
+                                <TouchableOpacity
+                                    style={styles.establecerButton}
+                                    onPress={abrirModalEstablecerLimite}
+                                >
+                                    <Ionicons name="pencil" size={16} color="#4A8FE7" />
+                                    <Text style={styles.establecerText}>Establecer límite</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Resumen financiero */}
+                            <View style={styles.resumenSection}>
+                                <View style={styles.resumenRow}>
+                                    <Text style={styles.resumenLabel}>Gastado</Text>
+                                    <Text style={styles.resumenValue}>${(gastosPorCategoria[categoriaSeleccionada] || 0).toFixed(2)}</Text>
+                                </View>
+                                <View style={styles.resumenRow}>
+                                    <Text style={styles.resumenLabel}>Próximo</Text>
+                                    <Text style={styles.resumenValue}>$0.00</Text>
+                                </View>
+                                <View style={styles.divider} />
+                                <View style={styles.resumenRow}>
+                                    <Text style={styles.totalLabel}>Total</Text>
+                                    <Text style={styles.totalValue}>${(gastosPorCategoria[categoriaSeleccionada] || 0).toFixed(2)}</Text>
+                                </View>
+                            </View>
+
+                            {/* Lista de transacciones */}
+                            <View style={styles.transaccionesSection}>
+                                <Text style={styles.transaccionesTitulo}>Transacciones</Text>
+
+                                {(!transaccionesPorCategoria[categoriaSeleccionada] || transaccionesPorCategoria[categoriaSeleccionada].length === 0) ? (
+                                    <View style={styles.emptyState}>
+                                        <Text style={styles.emptyText}>No hay transacciones</Text>
+                                    </View>
+                                ) : (
+                                    transaccionesPorCategoria[categoriaSeleccionada].map((transaccion) => {
+                                        const fecha = new Date(transaccion.fecha + 'T00:00:00');
+                                        const dia = fecha.getDate();
+                                        const mesT = MESES[fecha.getMonth()].toLowerCase();
+                                        const anioT = fecha.getFullYear();
+
+                                        return (
+                                            <TouchableOpacity
+                                                key={transaccion.id}
+                                                style={styles.transaccionItem}
+                                                onPress={() => abrirEdicionTransaccion(transaccion)}
+                                            >
+                                                <View style={styles.transaccionHeader}>
+                                                    <Text style={styles.fechaTransaccion}>{dia} {mesT} {anioT}</Text>
+                                                    <Ionicons name="checkmark" size={20} color="#4CAF50" />
+                                                </View>
+                                                <View style={styles.transaccionInfo}>
+                                                    <View style={styles.iconoCategoria}>
+                                                        <Ionicons name="people" size={20} color="#8BC34A" />
+                                                    </View>
+                                                    <View style={styles.transaccionTexto}>
+                                                        <Text style={styles.transaccionTipo}>{transaccion.descripcion || 'Gasto'}</Text>
+                                                        <Text style={styles.transaccionCuenta}>Efectivo</Text>
+                                                    </View>
+                                                    <View style={styles.transaccionMontos}>
+                                                        <Text style={styles.montoPositivo}>${transaccion.monto.toFixed(2)}</Text>
+                                                        <Text style={styles.montoNegativo}>-${transaccion.monto.toFixed(2)}</Text>
+                                                    </View>
+                                                </View>
+                                            </TouchableOpacity>
+                                        );
+                                    })
+                                )}
+                            </View>
+                        </ScrollView>
+                    </View>
+                </Modal>
+
+                {/* Modal de Editar Transacción (Segunda Imagen) */}
+                <Modal
+                    visible={modalEditar}
+                    animationType="slide"
+                    statusBarTranslucent
+                >
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalHeader}>
+                            <TouchableOpacity
+                                style={styles.backButton}
+                                onPress={() => setModalEditar(false)}
+                            >
+                                <Ionicons name="arrow-back" size={28} color="#000" />
+                            </TouchableOpacity>
+                            <Text style={styles.modalTitle}>Editar Gasto</Text>
+                            <TouchableOpacity onPress={eliminarTransaccionSeleccionada}>
+                                <Ionicons name="trash-outline" size={24} color="#000" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={styles.modalContent}>
+                            {/* Monto */}
+                            <View style={styles.modalSection}>
+                                <Text style={styles.modalLabel}>Monto</Text>
+                                <TextInput
+                                    style={styles.modalMonto}
+                                    value={`$${monto}`}
+                                    onChangeText={(text) => setMonto(text.replace('$', ''))}
+                                    keyboardType="numeric"
+                                />
+                                <View style={styles.pagadoContainer}>
+                                    <Ionicons name="checkmark" size={20} color="#4CAF50" />
+                                    <Text style={styles.pagadoText}>PAGADO</Text>
+                                </View>
+                            </View>
+
+                            {/* Descripción */}
+                            <View style={styles.modalSection}>
+                                <Text style={styles.modalLabel}>Descripción</Text>
+                                <View style={styles.modalInputRow}>
+                                    <Ionicons name="receipt-outline" size={20} color="#666" />
+                                    <TextInput
+                                        style={styles.modalInput}
+                                        value={descripcion}
+                                        onChangeText={setDescripcion}
+                                        placeholder="Gasto"
+                                    />
+                                </View>
+                            </View>
+
+                            {/* Fecha de Transacción */}
+                            <TouchableOpacity
+                                style={styles.modalSection}
+                                onPress={() => {
+                                    setTipoFecha('transaccion');
+                                    setMostrarDatePicker(true);
+                                }}
+                            >
+                                <Text style={styles.modalLabel}>Fecha de Transacción</Text>
+                                <View style={styles.modalInputRow}>
+                                    <Ionicons name="calendar-outline" size={20} color="#666" />
+                                    <Text style={styles.modalValue}>
+                                        {fechaTransaccion.getDate()} {MESES[fechaTransaccion.getMonth()].toLowerCase()} {fechaTransaccion.getFullYear()}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            {/* Fecha de pago */}
+                            <TouchableOpacity
+                                style={styles.modalSection}
+                                onPress={() => {
+                                    setTipoFecha('pago');
+                                    setMostrarDatePicker(true);
+                                }}
+                            >
+                                <Text style={styles.modalLabel}>Fecha de pago</Text>
+                                <View style={styles.modalInputRow}>
+                                    <Ionicons name="calendar-outline" size={20} color="#666" />
+                                    <Text style={styles.modalValue}>
+                                        {fechaPago.getDate()} {MESES[fechaPago.getMonth()].toLowerCase()} {fechaPago.getFullYear()}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            {/* Cuenta */}
+                            <View style={styles.modalSection}>
+                                <Text style={styles.modalLabel}>Cuenta</Text>
+                                <View style={styles.modalInputRow}>
+                                    <Ionicons name="wallet-outline" size={20} color="#666" />
+                                    <TextInput
+                                        style={styles.modalInput}
+                                        value={cuenta}
+                                        onChangeText={setCuenta}
+                                        placeholder="Efectivo"
+                                    />
+                                </View>
+                            </View>
+
+                            {/* Categoría */}
+                            <View style={styles.modalSection}>
+                                <Text style={styles.modalLabel}>Categoría</Text>
+                                <View style={styles.modalInputRow}>
+                                    <Ionicons name="people" size={20} color="#666" />
+                                    <Text style={styles.modalValue}>{transaccionSeleccionada?.categoria || categoriaSeleccionada}</Text>
+                                </View>
+                            </View>
+
+                            {/* Notas */}
+                            <View style={styles.modalSection}>
+                                <Text style={styles.modalLabel}>Notas</Text>
+                                <View style={styles.modalInputRow}>
+                                    <Ionicons name="chatbox-outline" size={20} color="#666" />
+                                    <TextInput
+                                        style={styles.modalInput}
+                                        value={notas}
+                                        onChangeText={setNotas}
+                                        placeholder=""
+                                        multiline
+                                    />
+                                </View>
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.deshacerButton}
+                                onPress={guardarCambiosTransaccion}
+                            >
+                                <Text style={styles.deshacerText}>Guardar Cambios</Text>
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </View>
+                </Modal>
+
+                {/* Modal de Establecer Límite */}
+                <Modal
+                    visible={modalEstablecerLimite}
+                    animationType="fade"
+                    transparent={true}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalLimiteContainer}>
+                            <Text style={styles.modalLimiteTitulo}>{categoriaSeleccionada}</Text>
+
+                            <Text style={styles.modalLimiteLabel}>Límite de gasto</Text>
+
+                            <TextInput
+                                style={styles.modalLimiteInput}
+                                value={montoLimite}
+                                onChangeText={setMontoLimite}
+                                keyboardType="numeric"
+                                placeholder="$0"
+                                placeholderTextColor="#999"
+                            />
+
+                            <TouchableOpacity
+                                style={styles.modalLimiteBoton}
+                                onPress={aplicarLimiteSoloPeriodo}
+                            >
+                                <Text style={styles.modalLimiteBotonTexto}>Aplicar solo a este periodo</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.modalLimiteBoton}
+                                onPress={aplicarLimiteTodosPeriodos}
+                            >
+                                <Text style={styles.modalLimiteBotonTexto}>Aplicar a todos los periodos</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.modalLimiteCancelar}
+                                onPress={() => setModalEstablecerLimite(false)}
+                            >
+                                <Text style={styles.modalLimiteCancelarTexto}>Cancelar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
+
+                {mostrarDatePicker && (
+                    <DateTimePicker
+                        value={tipoFecha === 'transaccion' ? fechaTransaccion : fechaPago}
+                        mode="date"
+                        display="default"
+                        onChange={onChangeFecha}
+                    />
+                )}
+            </ScrollView>
+
+            {/* Botón Flotante (FAB) funcional */}
+            <BotonAgregarTransaccion onTransaccionGuardada={cargarDatos} />
+
         </View>
-
-      {/* Header Principal - Mes y controles */}
-        <View style={styles.header}>
-            <View style={styles.headerLeft}>
-                <Text style={styles.mesAnio}>{mesActual} {anioActual}</Text>
-            </View>
-
-            <View style={styles.headerRight}>
-                <View style={styles.headerIcon}>
-                    <Ionicons name="chevron-back" size={20} color="#030213" />
-                </View>
-
-                <View style={styles.headerIcon}>
-                    <Ionicons name="chevron-forward" size={20} color="#030213" />
-                </View>
-
-            </View>
-        </View>
-
-      {/* Área de Contenido Principal */}
-        <ScrollView style={styles.contentArea} contentContainerStyle={styles.contentContainer}>
-            {/* Círculo de progreso y monto restante */}
-            <View style={styles.budgetSummary}>
-                <View style={styles.progressRing}>
-                    <Text style={styles.percentageText}>38%</Text>
-                </View>
-                <View style={styles.remainingAmount}>
-                    <Text style={styles.remainingLabel}>Restante</Text>
-                    <Text style={styles.remainingValue}>$3,100.00</Text>
-                    <Text style={styles.spentText}>Gastado $1,900 de <Text style={styles.totalBudget}>$5,000</Text></Text>
-                </View>
-            </View>
-
-            {/* Categorías de presupuesto */}
-            <View style={styles.categories}>
-                <TouchableOpacity 
-                    style={styles.categoryItem}
-                    onPress={() => setModalVisible(true)}
-                >
-                    <View style={[styles.categoryIcon, { backgroundColor: '#E3F2FD' }]}>
-                        <Ionicons name="cart" size={24} color="#2196F3" />
-                    </View>
-                    <View style={styles.categoryInfo}>
-                        <View style={styles.categoryHeader}>
-                            <Text style={styles.categoryName}>Supermercado</Text>
-                            <Text style={styles.categoryAmount}>$850</Text>
-                        </View>
-                        <View style={styles.categoryProgress}>
-                            <View style={[styles.progressBar, { backgroundColor: '#2196F3', width: '42.5%' }]} />
-                        </View>
-                        <Text style={styles.transactionCount}>4 transacciones</Text>
-                    </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                    style={styles.categoryItem}
-                    onPress={() => setModalVisible(true)}
-                >
-                    <View style={[styles.categoryIcon, { backgroundColor: '#FFF3E0' }]}>
-                        <Ionicons name="car" size={24} color="#FF9800" />
-                    </View>
-                    <View style={styles.categoryInfo}>
-                        <View style={styles.categoryHeader}>
-                            <Text style={styles.categoryName}>Transporte</Text>
-                            <Text style={styles.categoryAmount}>$600</Text>
-                        </View>
-                        <View style={styles.categoryProgress}>
-                            <View style={[styles.progressBar, { backgroundColor: '#FF9800', width: '30%' }]} />
-                        </View>
-                        <Text style={styles.transactionCount}>8 transacciones</Text>
-                    </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                    style={styles.categoryItem}
-                    onPress={() => setModalVisible(true)}
-                >
-                    <View style={[styles.categoryIcon, { backgroundColor: '#F3E5F5' }]}>
-                        <Ionicons name="phone-portrait" size={24} color="#9C27B0" />
-                    </View>
-                    <View style={styles.categoryInfo}>
-                        <View style={styles.categoryHeader}>
-                            <Text style={styles.categoryName}>Servicios</Text>
-                            <Text style={styles.categoryAmount}>$450</Text>
-                        </View>
-                        <View style={styles.categoryProgress}>
-                            <View style={[styles.progressBar, { backgroundColor: '#9C27B0', width: '22.5%' }]} />
-                        </View>
-                        <Text style={styles.transactionCount}>3 transacciones</Text>
-                    </View>
-                </TouchableOpacity>
-            </View>
-
-            {/* Modal de Editar Gasto */}
-            <Modal
-                visible={modalVisible}
-                animationType="slide"
-                statusBarTranslucent
-            >
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalHeader}>
-                        <TouchableOpacity 
-                            style={styles.backButton}
-                            onPress={() => setModalVisible(false)}
-                        >
-                            <Ionicons name="chevron-back" size={28} color="#000" />
-                        </TouchableOpacity>
-                        <Text style={styles.modalTitle}>Editar Gasto</Text>
-                        <TouchableOpacity>
-                            <Ionicons name="trash-outline" size={24} color="#000" />
-                        </TouchableOpacity>
-                    </View>
-
-                    <ScrollView style={styles.modalContent}>
-                        <Text style={styles.modalLabel}>Monto</Text>
-                        <Text style={styles.modalMonto}>$300.00</Text>
-                        <View style={styles.pagadoContainer}>
-                            <Ionicons name="checkmark" size={20} color="#4CAF50" />
-                            <Text style={styles.pagadoText}>PAGADO</Text>
-                        </View>
-
-                        <Text style={styles.modalLabel}>Descripción</Text>
-                        <Text style={styles.modalValue}>Sí</Text>
-
-                        <Text style={styles.modalLabel}>Fecha de Transacción</Text>
-                        <Text style={styles.modalValue}>2 nov 2025</Text>
-
-                        <Text style={styles.modalLabel}>Fecha de pago</Text>
-                        <Text style={styles.modalValue}>2 nov 2025</Text>
-
-                        <Text style={styles.modalLabel}>Cuenta</Text>
-                        <Text style={styles.modalValue}>Efectivo</Text>
-
-                        <Text style={styles.modalLabel}>Categoría</Text>
-                        <Text style={styles.modalValue}>Familia</Text>
-
-                        <Text style={styles.modalLabel}>Notas</Text>
-                        <View style={styles.notasContainer} />
-
-                        <TouchableOpacity style={styles.deshacerButton}>
-                            <Text style={styles.deshacerText}>Deshacer Pago</Text>
-                        </TouchableOpacity>
-                    </ScrollView>
-                </View>
-            </Modal>
-        </ScrollView>
-
-      {/* Botón Flotante (FAB) */}
-        <TouchableOpacity style={styles.fab}>
-            <Ionicons name="add" size={28} color="#ffffff" />
-        </TouchableOpacity>
-
-    </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#ffffff',
+        backgroundColor: '#F5F5F5',
         paddingTop: 0,
     },
-  // Top Bar - Barra gris superior
     topBar: {
         backgroundColor: '#E3F2FD',
         paddingHorizontal: 20,
@@ -221,7 +699,6 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         color: '#030213',
     },
-  // Header Principal
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -254,16 +731,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 8,
     },
-    headerTextButton: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-    },
-    headerText: {
-        fontSize: 14,
-        color: '#030213',
-        fontWeight: '500',
-    },
-  // Área de Contenido
     contentArea: {
         flex: 1,
         backgroundColor: '#ffffff',
@@ -370,7 +837,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#717182',
     },
-  // Botón Flotante (FAB)
     fab: {
         position: 'absolute',
         right: 20,
@@ -388,32 +854,20 @@ const styles = StyleSheet.create({
         elevation: 8,
         zIndex: 1,
     },
-  // Barra de Navegación Inferior
-    bottomNav: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        backgroundColor: '#E3F2FD',
-        paddingVertical: 12,
-        paddingBottom: 20,
-        borderTopWidth: 1,
-        borderTopColor: '#d1d1d1',
-    },
-    navItem: {
-        padding: 8,
-    },
-    // Estilos del Modal
+    // Modal styles
     modalContainer: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#F5F5F5',
     },
     modalHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16,
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+        backgroundColor: '#fff',
         borderBottomWidth: 1,
-        borderBottomColor: '#e5e5e5',
+        borderBottomColor: '#E0E0E0',
     },
     backButton: {
         padding: 4,
@@ -421,56 +875,271 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
+        color: '#000',
+        flex: 1,
+        textAlign: 'center',
+    },
+    mesAnioModal: {
+        fontSize: 12,
+        color: '#666',
     },
     modalContent: {
         flex: 1,
-        padding: 16,
+    },
+    // Sección de límite (primera imagen)
+    limiteSection: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        backgroundColor: '#fff',
+        marginBottom: 1,
+    },
+    limiteLabel: {
+        fontSize: 16,
+        color: '#000',
+    },
+    establecerButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#E3F2FD',
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    establecerText: {
+        color: '#4A8FE7',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    // Resumen financiero (primera imagen)
+    resumenSection: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        marginBottom: 8,
+    },
+    resumenRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+    },
+    resumenLabel: {
+        fontSize: 16,
+        color: '#000',
+    },
+    resumenValue: {
+        fontSize: 16,
+        color: '#000',
+        fontWeight: '500',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#E0E0E0',
+        marginVertical: 8,
+    },
+    totalLabel: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#000',
+    },
+    totalValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#000',
+    },
+    // Transacciones (primera imagen)
+    transaccionesSection: {
+        backgroundColor: '#fff',
+        paddingTop: 16,
+        marginTop: 8,
+    },
+    transaccionesTitulo: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#000',
+        paddingHorizontal: 20,
+        marginBottom: 12,
+    },
+    emptyState: {
+        padding: 40,
+        alignItems: 'center',
+    },
+    emptyText: {
+        color: '#999',
+        fontSize: 14,
+    },
+    transaccionItem: {
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F5F5F5',
+    },
+    transaccionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    fechaTransaccion: {
+        fontSize: 12,
+        color: '#666',
+    },
+    transaccionInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    iconoCategoria: {
+        width: 40,
+        height: 40,
+        borderRadius: 8,
+        backgroundColor: '#C5E1A5',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    transaccionTexto: {
+        flex: 1,
+    },
+    transaccionTipo: {
+        fontSize: 16,
+        color: '#000',
+        fontWeight: '500',
+    },
+    transaccionCuenta: {
+        fontSize: 14,
+        color: '#666',
+        marginTop: 2,
+    },
+    transaccionMontos: {
+        alignItems: 'flex-end',
+    },
+    montoPositivo: {
+        fontSize: 16,
+        color: '#000',
+        fontWeight: '500',
+    },
+    montoNegativo: {
+        fontSize: 14,
+        color: '#F44336',
+        marginTop: 2,
+    },
+    // Modal de edición (segunda imagen)
+    modalSection: {
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F5F5F5',
     },
     modalLabel: {
-        fontSize: 16,
+        fontSize: 14,
         color: '#666',
-        marginTop: 16,
-        marginBottom: 8,
+        marginBottom: 10,
     },
     modalMonto: {
         fontSize: 32,
         fontWeight: 'bold',
+        color: '#000',
         marginBottom: 8,
     },
     pagadoContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 16,
+        gap: 4,
     },
     pagadoText: {
         color: '#4CAF50',
-        marginLeft: 4,
-        fontWeight: '500',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    modalInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    modalInput: {
+        fontSize: 16,
+        color: '#000',
+        flex: 1,
+        paddingVertical: 4,
     },
     modalValue: {
         fontSize: 16,
         color: '#000',
-        paddingVertical: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: '#e5e5e5',
-    },
-    notasContainer: {
-        height: 100,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 8,
-        marginTop: 8,
     },
     deshacerButton: {
         backgroundColor: '#E3F2FD',
-        padding: 16,
+        marginHorizontal: 20,
+        marginVertical: 20,
+        paddingVertical: 16,
         borderRadius: 8,
         alignItems: 'center',
-        marginTop: 24,
-        marginBottom: 32,
     },
     deshacerText: {
-        color: '#2196F3',
+        color: '#4A8FE7',
         fontSize: 16,
+        fontWeight: '600',
+    },
+    // Modal de establecer límite
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    modalLimiteContainer: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 24,
+        width: '90%',
+        maxWidth: 400,
+    },
+    modalLimiteTitulo: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#000',
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    modalLimiteLabel: {
+        fontSize: 16,
+        color: '#000',
+        textAlign: 'center',
+        marginBottom: 12,
+    },
+    modalLimiteInput: {
+        fontSize: 48,
+        fontWeight: 'bold',
+        color: '#000',
+        textAlign: 'center',
+        borderBottomWidth: 2,
+        borderBottomColor: '#4A8FE7',
+        paddingVertical: 8,
+        marginBottom: 32,
+    },
+    modalLimiteBoton: {
+        paddingVertical: 14,
+        marginBottom: 12,
+    },
+    modalLimiteBotonTexto: {
+        color: '#4A8FE7',
+        fontSize: 16,
+        textAlign: 'center',
+        fontWeight: '500',
+    },
+    modalLimiteCancelar: {
+        paddingVertical: 14,
+        marginTop: 8,
+    },
+    modalLimiteCancelarTexto: {
+        color: '#000',
+        fontSize: 16,
+        textAlign: 'center',
         fontWeight: '600',
     },
 });

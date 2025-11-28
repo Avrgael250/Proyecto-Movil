@@ -1,10 +1,11 @@
 import 'react-native-gesture-handler';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LogBox } from 'react-native';
+import { LogBox, ActivityIndicator, View, StyleSheet } from 'react-native';
+import { inicializarDB } from './database/database';
 
 // Ignorar advertencias específicas
 LogBox.ignoreLogs([
@@ -24,6 +25,25 @@ import Cuentas from './screens/Cuentas';
 const Tab = createBottomTabNavigator();
 
 export default function App() {
+  const [dbInicializada, setDbInicializada] = useState(false);
+
+  useEffect(() => {
+    const iniciar = async () => {
+      const resultado = await inicializarDB();
+      setDbInicializada(resultado);
+    };
+    iniciar();
+  }, []);
+
+  // Mostrar pantalla de carga mientras se inicializa la BD
+  if (!dbInicializada) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4A8FE7" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <NavigationContainer>
@@ -63,38 +83,38 @@ export default function App() {
             },
           })}
         >
-          <Tab.Screen 
-            name="Register" 
+          <Tab.Screen
+            name="Register"
             component={RegisterScreen}
             options={{ tabBarLabel: 'Registro' }}
           />
-          <Tab.Screen 
-            name="Login" 
+          <Tab.Screen
+            name="Login"
             component={LoginScreen}
             options={{ tabBarLabel: 'Login' }}
           />
-          <Tab.Screen 
-            name="Home" 
+          <Tab.Screen
+            name="Home"
             component={Home}
             options={{ tabBarLabel: 'Inicio' }}
           />
-          <Tab.Screen 
-            name="PresupuestosMensuales" 
+          <Tab.Screen
+            name="PresupuestosMensuales"
             component={PresupuestosMensuales}
             options={{ tabBarLabel: 'Presupuestos' }}
           />
-          <Tab.Screen 
-            name="Graficas" 
+          <Tab.Screen
+            name="Graficas"
             component={Graficas}
             options={{ tabBarLabel: 'Gráficas' }}
           />
-          <Tab.Screen 
-            name="Transacciones" 
+          <Tab.Screen
+            name="Transacciones"
             component={ScreenDeTransacciones}
             options={{ tabBarLabel: 'Transacciones' }}
           />
-          <Tab.Screen 
-            name="Cuentas" 
+          <Tab.Screen
+            name="Cuentas"
             component={Cuentas}
             options={{ tabBarLabel: 'Cuentas' }}
           />
@@ -104,4 +124,12 @@ export default function App() {
   );
 }
 
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+  },
+});
 
