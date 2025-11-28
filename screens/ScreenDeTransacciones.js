@@ -13,19 +13,28 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
-import { transaccionesEjemplo, categorias } from './DatosEjemplo';
+import { categorias } from './DatosEjemplo';
 import ElementoTransaccion from './ElementoDeTransaccionScreen';
+import { 
+  inicializarDB, 
+  obtenerTransacciones, 
+  guardarTransaccion as guardarTransaccionDB, 
+  actualizarTransaccion, 
+  eliminarTransaccion as eliminarTransaccionDB,
+  obtenerSesion 
+} from '../database/database';
 
 const { width, height } = Dimensions.get('window');
 
 const ScreenDeTransacciones = () => {
   // Estados principales
-  const [transacciones, setTransacciones] = useState(transaccionesEjemplo);
-  const [transaccionesFiltradas, setTransaccionesFiltradas] = useState(transaccionesEjemplo);
+  const [transacciones, setTransacciones] = useState([]);
+  const [transaccionesFiltradas, setTransaccionesFiltradas] = useState([]);
   const [mostrarModalFiltros, setMostrarModalFiltros] = useState(false);
   const [mostrarModalFormulario, setMostrarModalFormulario] = useState(false);
   const [mostrarModalDetalles, setMostrarModalDetalles] = useState(false);
   const [transaccionSeleccionada, setTransaccionSeleccionada] = useState(null);
+  const [usuarioEmail, setUsuarioEmail] = useState('');
 
   // Estados para filtros
   const [filtros, setFiltros] = useState({
@@ -50,6 +59,60 @@ const ScreenDeTransacciones = () => {
     descripcion: '',
     fecha: new Date().toISOString().split('T')[0],
   });
+
+  // Inicializar base de datos y cargar transacciones
+  useEffect(() => {
+    inicializarBaseDeDatos();
+  }, []);
+
+  const inicializarBaseDeDatos = async () => {
+    try {
+      await inicializarDB();
+      await cargarUsuarioYSesion();
+      await cargarTransacciones();
+    } catch (error) {
+      console.error('Error al inicializar la base de datos:', error);
+      Alert.alert('Error', 'No se pudo conectar con la base de datos');
+    }
+  };
+
+  const cargarUsuarioYSesion = async () => {
+    try {
+      const sesion = await obtenerSesion();
+      if (sesion && sesion.usuario_email) {
+        setUsuarioEmail(sesion.usuario_email);
+      } else {
+        setUsuarioEmail('usuario@ejemplo.com');
+      }
+    } catch (error) {
+      console.error('Error al cargar sesión:', error);
+      setUsuarioEmail('usuario@ejemplo.com');
+    }
+  };
+
+  const cargarTransacciones = async () => {
+    try {
+      if (!usuarioEmail) return;
+      
+      const transaccionesDB = await obtenerTransacciones(usuarioEmail);
+      
+      const transaccionesFormateadas = transaccionesDB.map(transaccion => ({
+        id: transaccion.id.toString(),
+        tipo: transaccion.tipo.toLowerCase(),
+        monto: parseFloat(transaccion.monto),
+        categoria: transaccion.categoria,
+        descripcion: transaccion.descripcion,
+        fecha: transaccion.fecha,
+        fechaCreacion: transaccion.fecha_creacion
+      }));
+
+      setTransacciones(transaccionesFormateadas);
+      setTransaccionesFiltradas(transaccionesFormateadas);
+    } catch (error) {
+      console.error('Error al cargar transacciones:', error);
+      Alert.alert('Error', 'No se pudieron cargar las transacciones');
+    }
+  };
 
   // Calcular resumen cuando cambien las transacciones filtradas
   useEffect(() => {
@@ -121,37 +184,57 @@ const ScreenDeTransacciones = () => {
     setMostrarModalFormulario(true);
   };
 
-  const guardarTransaccion = () => {
+  const guardarTransaccion = async () => {
     if (!datosFormulario.monto || !datosFormulario.categoria) {
       Alert.alert('Error', 'Por favor completa el monto y la categoría');
       return;
     }
 
-    if (transaccionEditando) {
-      setTransacciones(prev =>
-        prev.map(t =>
-          t.id === transaccionEditando.id
-            ? {
-              ...datosFormulario,
-              id: transaccionEditando.id,
-              monto: parseFloat(datosFormulario.monto)
-            }
-            : t
-        )
-      );
-    } else {
-      const nuevaTransaccion = {
-        ...datosFormulario,
-        id: Date.now().toString(),
-        monto: parseFloat(datosFormulario.monto),
-        fechaCreacion: new Date(),
-      };
-      setTransacciones(prev => [nuevaTransaccion, ...prev]);
-    }
+    try {
+      if (transaccionEditando) {
+        const transaccionActualizada = {
+          tipo: datosFormulario.tipo === 'ingreso' ? 'Ingreso' : 'Egreso',
+          monto: parseFloat(datosFormulario.monto),
+          categoria: datosFormulario.categoria,
+          descripcion: datosFormulario.descripcion,
+          fecha: datosFormulario.fecha,
+          fecha_transaccion: datosFormulario.fecha
+        };
 
-    setTransaccionesFiltradas(transacciones);
-    setMostrarModalFormulario(false);
-    setTransaccionEditando(null);
+        const resultado = await actualizarTransaccion(transaccionEditando.id, transaccionActualizada);
+        
+        if (resultado.success) {
+          await cargarTransacciones();
+          Alert.alert('Éxito', 'Transacción actualizada correctamente');
+        } else {
+          throw new Error('Error al actualizar');
+        }
+      } else {
+        const nuevaTransaccion = {
+          tipo: datosFormulario.tipo === 'ingreso' ? 'Ingreso' : 'Egreso',
+          monto: parseFloat(datosFormulario.monto),
+          categoria: datosFormulario.categoria,
+          descripcion: datosFormulario.descripcion,
+          fecha_transaccion: datosFormulario.fecha,
+          fecha: datosFormulario.fecha
+        };
+
+        const resultado = await guardarTransaccionDB(nuevaTransaccion, usuarioEmail);
+        
+        if (resultado.success) {
+          await cargarTransacciones();
+          Alert.alert('Éxito', 'Transacción guardada correctamente');
+        } else {
+          throw new Error('Error al guardar');
+        }
+      }
+
+      setMostrarModalFormulario(false);
+      setTransaccionEditando(null);
+    } catch (error) {
+      console.error('Error al guardar transacción:', error);
+      Alert.alert('Error', 'No se pudo guardar la transacción');
+    }
   };
 
   const editarTransaccion = (transaccion) => {
@@ -167,7 +250,7 @@ const ScreenDeTransacciones = () => {
     setMostrarModalFormulario(true);
   };
 
-  const eliminarTransaccion = (idTransaccion) => {
+  const eliminarTransaccion = async (idTransaccion) => {
     Alert.alert(
       'Eliminar Transacción',
       '¿Estás seguro de que quieres eliminar esta transacción?',
@@ -176,9 +259,19 @@ const ScreenDeTransacciones = () => {
         {
           text: 'Eliminar',
           style: 'destructive',
-          onPress: () => {
-            setTransacciones(prev => prev.filter(t => t.id !== idTransaccion));
-            setTransaccionesFiltradas(prev => prev.filter(t => t.id !== idTransaccion));
+          onPress: async () => {
+            try {
+              const resultado = await eliminarTransaccionDB(idTransaccion);
+              if (resultado.success) {
+                await cargarTransacciones();
+                Alert.alert('Éxito', 'Transacción eliminada correctamente');
+              } else {
+                throw new Error('Error al eliminar');
+              }
+            } catch (error) {
+              console.error('Error al eliminar transacción:', error);
+              Alert.alert('Error', 'No se pudo eliminar la transacción');
+            }
             setMostrarModalDetalles(false);
           }
         },
@@ -201,13 +294,13 @@ const ScreenDeTransacciones = () => {
         <View style={estilos.itemResumen}>
           <Text style={estilos.etiquetaResumen}>Ingresos</Text>
           <Text style={[estilos.valorResumen, estilos.textoIngreso]}>
-            +${resumen.ingresos}
+            +${resumen.ingresos.toFixed(2)}
           </Text>
         </View>
         <View style={estilos.itemResumen}>
           <Text style={estilos.etiquetaResumen}>Gastos</Text>
           <Text style={[estilos.valorResumen, estilos.textoGasto]}>
-            -${resumen.gastos}
+            -${resumen.gastos.toFixed(2)}
           </Text>
         </View>
         <View style={estilos.itemResumen}>
@@ -216,7 +309,7 @@ const ScreenDeTransacciones = () => {
             estilos.valorResumen,
             { color: resumen.balance >= 0 ? '#0EA5E9' : '#EF4444' }
           ]}>
-            ${resumen.balance}
+            ${resumen.balance.toFixed(2)}
           </Text>
         </View>
       </View>
@@ -314,7 +407,7 @@ const ScreenDeTransacciones = () => {
                             : '#EF4444'
                         }
                       ]}>
-                        {transaccionSeleccionada.tipo === 'ingreso' ? '+' : '-'}${transaccionSeleccionada.monto}
+                        {transaccionSeleccionada.tipo === 'ingreso' ? '+' : '-'}${transaccionSeleccionada.monto.toFixed(2)}
                       </Text>
                     </View>
 

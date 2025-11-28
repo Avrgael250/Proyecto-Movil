@@ -1,38 +1,14 @@
-export const transaccionesEjemplo = [
-    {
-        id:1,
-        tipo: 'ingreso',
-        monto : 20000,
-        categoria: 'Salario',
-        descripcion: 'Pago mensual de mi trabajo',
-        fecha: '2025-11-01',
-        fechaCreacion: new Date('2025-11-01')
-    },
-
-    {
-        id:2,
-        tipo: 'gasto',
-        monto : 750,
-        categoria: 'Comida',
-        descripcion: 'Gasto en supermercado',
-        fecha: '2025-11-02',
-        fechaCreacion: new Date('2025-11-02')
-    },
-
-    {
-        id:3,
-        tipo: 'gasto',
-        monto : 500,
-        categoria: 'Transporte',
-        descripcion: 'Gasto en gasolina del coche',
-        fecha: '2025-11-03',
-        fechaCreacion: new Date('2025-11-03')
-    },
-    
-];
 export const categorias = [
-    {id:1, mobre: 'Salario', tipo: 'ingreso', color: '#22C55E'},
-    {id:2, mobre: 'Comida', tipo: 'gasto', color: '#EF4444'},
-    {id:3, mobre: 'Transporte', tipo: 'gasto', color: '#F59E0B'},  
-    {id:4, mobre: 'Ocio', tipo: 'gasto', color: '#EC4899'},
-];        
+  { id: 1, nombre: 'Comida', tipo: 'gasto' },
+  { id: 2, nombre: 'Transporte', tipo: 'gasto' },
+  { id: 3, nombre: 'Entretenimiento', tipo: 'gasto' },
+  { id: 4, nombre: 'Salud', tipo: 'gasto' },
+  { id: 5, nombre: 'Educación', tipo: 'gasto' },
+  { id: 6, nombre: 'Salario', tipo: 'ingreso' },
+  { id: 7, nombre: 'Inversiones', tipo: 'ingreso' },
+  { id: 8, nombre: 'Regalos', tipo: 'ingreso' },
+  { id: 9, nombre: 'Otros', tipo: 'gasto' },
+];
+
+// Ya no necesitas transaccionesEjemplo ya que vendrán de la base de datos
+export const transaccionesEjemplo = [];
