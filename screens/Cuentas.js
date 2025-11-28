@@ -67,7 +67,7 @@ export default function Cuentas() {
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Cuentas</Text>
                 <View style={styles.headerButtons}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.tabButton, activeTab === 'debito' && styles.activeTab]}
                         onPress={() => setActiveTab('debito')}
                     >
@@ -75,7 +75,7 @@ export default function Cuentas() {
                             Cuentas de débito
                         </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.tabButton, activeTab === 'credito' && styles.activeTab]}
                         onPress={() => setActiveTab('credito')}
                     >

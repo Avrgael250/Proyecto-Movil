@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ScrollView, Alert, PanResponder, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { 
-    guardarTransaccion, 
+import {
+    guardarTransaccion,
     obtenerSesion,
     obtenerCuentas,
-    obtenerCategorias 
+    obtenerCategorias
 } from '../database/database';
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -14,11 +14,11 @@ const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'O
 const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
     // Modal de selección de tipo
     const [modalTipos, setModalTipos] = useState(false);
-    
+
     // Modal de agregar transacción
     const [modalAgregar, setModalAgregar] = useState(false);
     const [tipoTransaccion, setTipoTransaccion] = useState('');
-    
+
     // Campos del formulario
     const [monto, setMonto] = useState('');
     const [descripcion, setDescripcion] = useState('');
@@ -26,10 +26,10 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
     const [cuenta, setCuenta] = useState('');
     const [categoria, setCategoria] = useState('');
     const [notas, setNotas] = useState('');
-    
+
     // DatePicker
     const [mostrarDatePicker, setMostrarDatePicker] = useState(false);
-    
+
     // Datos del usuario
     const [usuarioEmail, setUsuarioEmail] = useState('');
     const [cuentas, setCuentas] = useState([]);
@@ -142,7 +142,7 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
             Alert.alert('Éxito', 'Transacción guardada correctamente');
             setModalAgregar(false);
             resetearFormulario();
-            
+
             // Notificar al componente padre que se guardó una transacción
             if (onTransaccionGuardada) {
                 onTransaccionGuardada();
@@ -183,12 +183,12 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                 transparent={true}
                 onRequestClose={cerrarModalTipos}
             >
-                <TouchableOpacity 
-                    style={styles.modalOverlay} 
+                <TouchableOpacity
+                    style={styles.modalOverlay}
                     activeOpacity={1}
                     onPress={cerrarModalTipos}
                 >
-                    <Animated.View 
+                    <Animated.View
                         style={[
                             styles.modalTiposContainer,
                             {
@@ -202,128 +202,128 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                             <Text style={styles.modalTiposTitulo}>Agregar transacción</Text>
 
                             {/* Gasto */}
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.tipoItem}
                                 onPress={() => seleccionarTipo('Gasto')}
                             >
-                            <View style={styles.tipoIcono}>
-                                <Ionicons name="receipt-outline" size={24} color="#000" />
-                            </View>
-                            <View style={styles.tipoTextos}>
-                                <Text style={styles.tipoTitulo}>Gasto</Text>
-                                <Text style={styles.tipoDescripcion}>
-                                    Registra una compra o un pago que hiciste, como supermercado, gasolina o restaurantes.
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
+                                <View style={styles.tipoIcono}>
+                                    <Ionicons name="receipt-outline" size={24} color="#000" />
+                                </View>
+                                <View style={styles.tipoTextos}>
+                                    <Text style={styles.tipoTitulo}>Gasto</Text>
+                                    <Text style={styles.tipoDescripcion}>
+                                        Registra una compra o un pago que hiciste, como supermercado, gasolina o restaurantes.
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
 
-                        <View style={styles.separador} />
+                            <View style={styles.separador} />
 
-                        {/* Pago */}
-                        <TouchableOpacity 
-                            style={styles.tipoItem}
-                            onPress={() => seleccionarTipo('Pago')}
-                        >
-                            <View style={styles.tipoIcono}>
-                                <Ionicons name="card-outline" size={24} color="#000" />
-                            </View>
-                            <View style={styles.tipoTextos}>
-                                <Text style={styles.tipoTitulo}>Pago</Text>
-                                <Text style={styles.tipoDescripcion}>
-                                    Registra un pago que necesites hacer, como suscripciones, renta o servicios.
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
+                            {/* Pago */}
+                            <TouchableOpacity
+                                style={styles.tipoItem}
+                                onPress={() => seleccionarTipo('Pago')}
+                            >
+                                <View style={styles.tipoIcono}>
+                                    <Ionicons name="card-outline" size={24} color="#000" />
+                                </View>
+                                <View style={styles.tipoTextos}>
+                                    <Text style={styles.tipoTitulo}>Pago</Text>
+                                    <Text style={styles.tipoDescripcion}>
+                                        Registra un pago que necesites hacer, como suscripciones, renta o servicios.
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
 
-                        <View style={styles.separador} />
+                            <View style={styles.separador} />
 
-                        {/* Ingreso */}
-                        <TouchableOpacity 
-                            style={styles.tipoItem}
-                            onPress={() => seleccionarTipo('Ingreso')}
-                        >
-                            <View style={styles.tipoIcono}>
-                                <Ionicons name="cash-outline" size={24} color="#000" />
-                            </View>
-                            <View style={styles.tipoTextos}>
-                                <Text style={styles.tipoTitulo}>Ingreso</Text>
-                                <Text style={styles.tipoDescripcion}>
-                                    Registra tu salario, bonos, freelance u otro ingreso que recibas.
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
+                            {/* Ingreso */}
+                            <TouchableOpacity
+                                style={styles.tipoItem}
+                                onPress={() => seleccionarTipo('Ingreso')}
+                            >
+                                <View style={styles.tipoIcono}>
+                                    <Ionicons name="cash-outline" size={24} color="#000" />
+                                </View>
+                                <View style={styles.tipoTextos}>
+                                    <Text style={styles.tipoTitulo}>Ingreso</Text>
+                                    <Text style={styles.tipoDescripcion}>
+                                        Registra tu salario, bonos, freelance u otro ingreso que recibas.
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
 
-                        <View style={styles.separador} />
+                            <View style={styles.separador} />
 
-                        {/* Transferencia */}
-                        <TouchableOpacity 
-                            style={styles.tipoItem}
-                            onPress={() => seleccionarTipo('Transferencia')}
-                        >
-                            <View style={styles.tipoIcono}>
-                                <Ionicons name="swap-horizontal-outline" size={24} color="#000" />
-                            </View>
-                            <View style={styles.tipoTextos}>
-                                <Text style={styles.tipoTitulo}>Transferencia</Text>
-                                <Text style={styles.tipoDescripcion}>
-                                    Registra movimientos entre cuentas, como transferencia de cuenta de cheques a ahorro.
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
+                            {/* Transferencia */}
+                            <TouchableOpacity
+                                style={styles.tipoItem}
+                                onPress={() => seleccionarTipo('Transferencia')}
+                            >
+                                <View style={styles.tipoIcono}>
+                                    <Ionicons name="swap-horizontal-outline" size={24} color="#000" />
+                                </View>
+                                <View style={styles.tipoTextos}>
+                                    <Text style={styles.tipoTitulo}>Transferencia</Text>
+                                    <Text style={styles.tipoDescripcion}>
+                                        Registra movimientos entre cuentas, como transferencia de cuenta de cheques a ahorro.
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
 
-                        <View style={styles.separador} />
+                            <View style={styles.separador} />
 
-                        {/* Reembolso */}
-                        <TouchableOpacity 
-                            style={styles.tipoItem}
-                            onPress={() => seleccionarTipo('Reembolso')}
-                        >
-                            <View style={styles.tipoIcono}>
-                                <Ionicons name="return-up-back-outline" size={24} color="#000" />
-                            </View>
-                            <View style={styles.tipoTextos}>
-                                <Text style={styles.tipoTitulo}>Reembolso</Text>
-                                <Text style={styles.tipoDescripcion}>
-                                    Registra un reembolso que recibiste, como al devolver un producto.
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
+                            {/* Reembolso */}
+                            <TouchableOpacity
+                                style={styles.tipoItem}
+                                onPress={() => seleccionarTipo('Reembolso')}
+                            >
+                                <View style={styles.tipoIcono}>
+                                    <Ionicons name="return-up-back-outline" size={24} color="#000" />
+                                </View>
+                                <View style={styles.tipoTextos}>
+                                    <Text style={styles.tipoTitulo}>Reembolso</Text>
+                                    <Text style={styles.tipoDescripcion}>
+                                        Registra un reembolso que recibiste, como al devolver un producto.
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
 
-                        <View style={styles.separador} />
+                            <View style={styles.separador} />
 
-                        {/* Compra a meses - PREMIUM */}
-                        <View style={styles.tipoItemDisabled}>
-                            <View style={styles.tipoIcono}>
-                                <Ionicons name="calendar-outline" size={24} color="#999" />
+                            {/* Compra a meses - PREMIUM */}
+                            <View style={styles.tipoItemDisabled}>
+                                <View style={styles.tipoIcono}>
+                                    <Ionicons name="calendar-outline" size={24} color="#999" />
+                                </View>
+                                <View style={styles.tipoTextos}>
+                                    <Text style={[styles.tipoTitulo, { color: '#999' }]}>Compra a meses</Text>
+                                    <Text style={styles.tipoDescripcion}>
+                                        Registra una compra a meses con tarjeta de crédito.
+                                    </Text>
+                                </View>
+                                <View style={styles.premiumBadge}>
+                                    <Text style={styles.premiumText}>PREMIUM</Text>
+                                </View>
                             </View>
-                            <View style={styles.tipoTextos}>
-                                <Text style={[styles.tipoTitulo, { color: '#999' }]}>Compra a meses</Text>
-                                <Text style={styles.tipoDescripcion}>
-                                    Registra una compra a meses con tarjeta de crédito.
-                                </Text>
-                            </View>
-                            <View style={styles.premiumBadge}>
-                                <Text style={styles.premiumText}>PREMIUM</Text>
-                            </View>
-                        </View>
 
-                        <View style={styles.separador} />
+                            <View style={styles.separador} />
 
-                        {/* Pago de Tarjeta - PREMIUM */}
-                        <View style={styles.tipoItemDisabled}>
-                            <View style={styles.tipoIcono}>
-                                <Ionicons name="card" size={24} color="#999" />
+                            {/* Pago de Tarjeta - PREMIUM */}
+                            <View style={styles.tipoItemDisabled}>
+                                <View style={styles.tipoIcono}>
+                                    <Ionicons name="card" size={24} color="#999" />
+                                </View>
+                                <View style={styles.tipoTextos}>
+                                    <Text style={[styles.tipoTitulo, { color: '#999' }]}>Pago de Tarjeta</Text>
+                                    <Text style={styles.tipoDescripcion}>
+                                        Registra un pago realizado a tu tarjeta de crédito.
+                                    </Text>
+                                </View>
+                                <View style={styles.premiumBadge}>
+                                    <Text style={styles.premiumText}>PREMIUM</Text>
+                                </View>
                             </View>
-                            <View style={styles.tipoTextos}>
-                                <Text style={[styles.tipoTitulo, { color: '#999' }]}>Pago de Tarjeta</Text>
-                                <Text style={styles.tipoDescripcion}>
-                                    Registra un pago realizado a tu tarjeta de crédito.
-                                </Text>
-                            </View>
-                            <View style={styles.premiumBadge}>
-                                <Text style={styles.premiumText}>PREMIUM</Text>
-                            </View>
-                        </View>
                         </TouchableOpacity>
                     </Animated.View>
                 </TouchableOpacity>
@@ -379,7 +379,7 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                         <View style={styles.separadorCampo} />
 
                         {/* Fecha de Transacción */}
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={styles.campoSection}
                             onPress={() => setMostrarDatePicker(true)}
                         >
@@ -447,7 +447,7 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
 
                     {/* Botón Guardar */}
                     <View style={styles.guardarContainer}>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={styles.guardarButton}
                             onPress={guardarNuevaTransaccion}
                         >

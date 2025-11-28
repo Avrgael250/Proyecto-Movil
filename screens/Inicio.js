@@ -62,15 +62,15 @@ export default function Inicio() {
       </View>
 
       {/* Contenido Principal */}
-      <ScrollView 
-        style={styles.content} 
+      <ScrollView
+        style={styles.content}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
-        >
+      >
         {/* Card: Disponible para gastar */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Disponible para gastar</Text>
-          
+
           <View style={styles.cardContent}>
             {/* Información financiera - Izquierda */}
             <View style={styles.infoFinanciera}>
@@ -78,12 +78,12 @@ export default function Inicio() {
                 <Text style={styles.infoLabel}>Balance Actual</Text>
                 <Text style={styles.infoValue}>$0.00</Text>
               </View>
-              
+
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Balance Proyectado</Text>
                 <Text style={styles.infoValue}>$0.00</Text>
               </View>
-              
+
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Gasto Proyectado</Text>
                 <Text style={styles.infoValue}>$0.00</Text>
@@ -111,7 +111,7 @@ export default function Inicio() {
           </View>
 
           {/* Botón "Este mes" - Sin funcionalidad */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.botonEsteMes}
           >
             <Text style={styles.botonEsteMesTexto}>Este mes</Text>
@@ -121,7 +121,7 @@ export default function Inicio() {
         {/* Sección: Este mes */}
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>Este mes</Text>
-          
+
           {/* Card de gastos */}
           <View style={styles.card}>
             <View style={styles.gastoItem}>
@@ -140,7 +140,7 @@ export default function Inicio() {
         {/* Sección: Próximo */}
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>Próximo</Text>
-          
+
           <View style={styles.proximoContainer}>
             {/* Círculo grande azul con checkmark */}
             <View style={styles.circuloCheckmark}>
@@ -151,7 +151,7 @@ export default function Inicio() {
         </View>
 
         {/* BOTÓN DE TRANSFERENCIAS ADICIONAL */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.botonTransferencias}
           onPress={irATransferencias}
         >
