@@ -15,13 +15,13 @@ import {
 } from 'react-native';
 import { categorias } from './DatosEjemplo';
 import ElementoTransaccion from './ElementoDeTransaccionScreen';
-import {
-  inicializarDB,
-  obtenerTransacciones,
-  guardarTransaccion as guardarTransaccionDB,
-  actualizarTransaccion,
+import { 
+  inicializarDB, 
+  obtenerTransacciones, 
+  guardarTransaccion as guardarTransaccionDB, 
+  actualizarTransaccion, 
   eliminarTransaccion as eliminarTransaccionDB,
-  obtenerSesion
+  obtenerSesion 
 } from '../database/database';
 
 const { width, height } = Dimensions.get('window');
@@ -92,16 +92,11 @@ const ScreenDeTransacciones = () => {
 
   const cargarTransacciones = async () => {
     try {
-      if (!usuarioEmail) {
-        console.log('⚠️ No hay usuario email para cargar transacciones');
-        return;
-      }
-
-      console.log('🔄 Cargando transacciones para:', usuarioEmail);
+      if (!usuarioEmail) return;
+      
       const transaccionesDB = await obtenerTransacciones(usuarioEmail);
-      console.log('💰 Transacciones obtenidas:', transaccionesDB?.length || 0);
-
-      const transaccionesFormateadas = (transaccionesDB || []).map(transaccion => ({
+      
+      const transaccionesFormateadas = transaccionesDB.map(transaccion => ({
         id: transaccion.id.toString(),
         tipo: transaccion.tipo.toLowerCase(),
         monto: parseFloat(transaccion.monto),
@@ -114,8 +109,8 @@ const ScreenDeTransacciones = () => {
       setTransacciones(transaccionesFormateadas);
       setTransaccionesFiltradas(transaccionesFormateadas);
     } catch (error) {
-      console.error('❌ Error al cargar transacciones:', error);
-      Alert.alert('Error', 'No se pudieron cargar las transacciones: ' + error.message);
+      console.error('Error al cargar transacciones:', error);
+      Alert.alert('Error', 'No se pudieron cargar las transacciones');
     }
   };
 
@@ -207,7 +202,7 @@ const ScreenDeTransacciones = () => {
         };
 
         const resultado = await actualizarTransaccion(transaccionEditando.id, transaccionActualizada);
-
+        
         if (resultado.success) {
           await cargarTransacciones();
           Alert.alert('Éxito', 'Transacción actualizada correctamente');
@@ -225,7 +220,7 @@ const ScreenDeTransacciones = () => {
         };
 
         const resultado = await guardarTransaccionDB(nuevaTransaccion, usuarioEmail);
-
+        
         if (resultado.success) {
           await cargarTransacciones();
           Alert.alert('Éxito', 'Transacción guardada correctamente');
@@ -468,7 +463,7 @@ const ScreenDeTransacciones = () => {
           onRequestClose={() => setMostrarModalFormulario(false)}
         >
           <View style={estilos.modalOverlay}>
-            <View style={[estilos.modalContainer, estilos.largeModal]}>
+            <View style={estilos.modalContainer}>
               <View style={estilos.modalHeader}>
                 <Text style={estilos.modalTitle}>
                   {transaccionEditando ? '✏️ Editar' : '➕ Nueva'} Transacción
@@ -712,7 +707,7 @@ const ScreenDeTransacciones = () => {
   );
 };
 
-// ESTILOS CORREGIDOS
+// ESTILOS CORREGIDOS PARA MODALES EN PANTALLA COMPLETA
 const estilos = StyleSheet.create({
   contenedorSafeArea: {
     flex: 1,
@@ -802,23 +797,15 @@ const estilos = StyleSheet.create({
     fontSize: 16,
   },
 
-  // ESTILOS DE MODALES CORREGIDOS
+  // ESTILOS DE MODALES CORREGIDOS - PANTALLA COMPLETA
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
   },
   modalContainer: {
+    flex: 1,
     backgroundColor: 'white',
-    borderRadius: 16,
-    width: '100%',
-    maxHeight: '80%',
-    overflow: 'hidden',
-  },
-  largeModal: {
-    maxHeight: '90%',
+    marginTop: StatusBar.currentHeight || 0,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -827,6 +814,7 @@ const estilos = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
   },
   modalTitle: {
     fontSize: 18,
@@ -834,25 +822,34 @@ const estilos = StyleSheet.create({
     color: '#1F2937',
   },
   closeButton: {
-    padding: 4,
+    padding: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   closeButtonText: {
-    fontSize: 20,
+    fontSize: 16,
     color: '#6B7280',
     fontWeight: 'bold',
   },
   modalContent: {
     flex: 1,
     padding: 20,
+    backgroundColor: '#FFFFFF',
   },
 
   // Estilos para modal de detalles
   detailCard: {
     backgroundColor: '#FFFFFF',
+    flex: 1,
   },
   detailIconSection: {
     alignItems: 'center',
     marginBottom: 24,
+    paddingVertical: 20,
   },
   detailIconContainer: {
     width: 80,
@@ -879,6 +876,7 @@ const estilos = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
     paddingTop: 24,
+    paddingBottom: 20,
   },
   detailRow: {
     flexDirection: 'row',
@@ -887,7 +885,7 @@ const estilos = StyleSheet.create({
     marginBottom: 16,
   },
   detailLabel: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#6B7280',
     fontWeight: '500',
     flex: 1,
@@ -901,14 +899,16 @@ const estilos = StyleSheet.create({
   },
   detailActions: {
     flexDirection: 'row',
-    marginTop: 24,
+    marginTop: 'auto',
+    paddingTop: 20,
     gap: 12,
   },
   actionButton: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   editButton: {
     backgroundColor: '#E0F2FE',
@@ -923,21 +923,23 @@ const estilos = StyleSheet.create({
   editButtonText: {
     color: '#0EA5E9',
     fontWeight: '600',
+    fontSize: 16,
   },
   deleteButtonText: {
     color: '#EF4444',
     fontWeight: '600',
+    fontSize: 16,
   },
 
   // Estilos para formulario
   formSection: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   formLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   typeButtons: {
     flexDirection: 'row',
@@ -945,14 +947,16 @@ const estilos = StyleSheet.create({
   },
   typeButton: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: '#E5E7EB',
     alignItems: 'center',
+    backgroundColor: '#F8FAFC',
   },
   typeButtonActive: {
     backgroundColor: '#F0F9FF',
+    borderColor: '#0EA5E9',
   },
   typeButtonText: {
     fontSize: 16,
@@ -967,7 +971,7 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: '#E5E7EB',
-    paddingBottom: 8,
+    paddingBottom: 12,
   },
   currencySymbol: {
     fontSize: 24,
@@ -980,19 +984,21 @@ const estilos = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#1F2937',
+    paddingVertical: 8,
   },
   categoryButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
   categoryButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderRadius: 20,
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    minWidth: '30%',
   },
   categoryButtonActive: {
     backgroundColor: '#0EA5E9',
@@ -1002,6 +1008,7 @@ const estilos = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     fontWeight: '500',
+    textAlign: 'center',
   },
   categoryButtonTextActive: {
     color: '#FFFFFF',
@@ -1009,26 +1016,27 @@ const estilos = StyleSheet.create({
   descriptionInput: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
     backgroundColor: '#FFFFFF',
     textAlignVertical: 'top',
-    minHeight: 80,
+    minHeight: 100,
   },
   dateInput: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
     backgroundColor: '#FFFFFF',
   },
   saveButton: {
-    marginTop: 20,
-    padding: 16,
+    marginTop: 24,
+    padding: 18,
     borderRadius: 12,
     alignItems: 'center',
+    marginBottom: 20,
   },
   saveButtonText: {
     color: '#FFFFFF',
@@ -1047,13 +1055,15 @@ const estilos = StyleSheet.create({
     marginBottom: 12,
   },
   filterTypeButtons: {
-    gap: 8,
+    gap: 10,
   },
   filterTypeButton: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   filterTypeButtonActive: {
     backgroundColor: '#E0F2FE',
@@ -1061,7 +1071,7 @@ const estilos = StyleSheet.create({
     borderColor: '#0EA5E9',
   },
   filterTypeButtonText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#6B7280',
     fontWeight: '500',
   },
@@ -1079,26 +1089,29 @@ const estilos = StyleSheet.create({
   amountInputLabel: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 4,
+    marginBottom: 8,
+    fontWeight: '500',
   },
   amountFilterInput: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
     backgroundColor: '#FFFFFF',
   },
   filterActions: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 20,
+    marginTop: 'auto',
+    paddingTop: 20,
   },
   filterActionButton: {
     flex: 1,
-    padding: 16,
+    padding: 18,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   clearButton: {
     backgroundColor: '#F3F4F6',
@@ -1113,10 +1126,12 @@ const estilos = StyleSheet.create({
   clearButtonText: {
     color: '#6B7280',
     fontWeight: '600',
+    fontSize: 16,
   },
   applyButtonText: {
     color: '#FFFFFF',
     fontWeight: '600',
+    fontSize: 16,
   },
 });
 
