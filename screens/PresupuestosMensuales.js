@@ -84,13 +84,20 @@ export default function PresupuestosMensuales() {
 
     useEffect(() => {
         const cargarSesion = async () => {
-            const sesion = await obtenerSesion();
-            if (sesion) {
-                setUsuarioEmail(sesion.usuario_email);
+            try {
+                const sesion = await obtenerSesion();
+                if (sesion) {
+                    setUsuarioEmail(sesion.usuario_email);
+                    console.log('✅ Sesión cargada en Presupuestos:', sesion.usuario_email);
+                } else {
+                    console.log('⚠️ No hay sesión activa en Presupuestos');
+                }
+            } catch (error) {
+                console.error('❌ Error al cargar sesión en Presupuestos:', error);
             }
         };
         cargarSesion();
-    }, []);
+    }, [isFocused]);
 
     useEffect(() => {
         if (usuarioEmail) {
@@ -99,31 +106,46 @@ export default function PresupuestosMensuales() {
     }, [usuarioEmail, mesIndex, anio]);
 
     const cargarDatos = async () => {
-        const mes = (mesIndex + 1).toString();
-
-        // Obtener presupuestos del mes
-        const presupuestosDB = await obtenerPresupuestosPorMes(usuarioEmail, mes, anio.toString());
-        setPresupuestos(presupuestosDB);
-
-        // Obtener transacciones del mes
-        const transaccionesDB = await obtenerTransaccionesDelMes(usuarioEmail, mes, anio.toString());
-
-        // Organizar transacciones y gastos por categoría
-        const transPorCat = {};
-        const gastosPorCat = {};
-
-        transaccionesDB.forEach(t => {
-            if (t.tipo === 'Egreso') {
-                if (!transPorCat[t.categoria]) {
-                    transPorCat[t.categoria] = [];
-                }
-                transPorCat[t.categoria].push(t);
-                gastosPorCat[t.categoria] = (gastosPorCat[t.categoria] || 0) + t.monto;
+        try {
+            if (!usuarioEmail) {
+                console.log('⚠️ No hay usuario email para cargar datos');
+                return;
             }
-        });
 
-        setTransaccionesPorCategoria(transPorCat);
-        setGastosPorCategoria(gastosPorCat);
+            const mes = (mesIndex + 1).toString();
+            console.log('🔄 Cargando datos para:', usuarioEmail, 'mes:', mes, 'año:', anio);
+
+            // Obtener presupuestos del mes
+            const presupuestosDB = await obtenerPresupuestosPorMes(usuarioEmail, mes, anio.toString());
+            console.log('📊 Presupuestos obtenidos:', presupuestosDB?.length || 0);
+            setPresupuestos(presupuestosDB || []);
+
+            // Obtener transacciones del mes
+            const transaccionesDB = await obtenerTransaccionesDelMes(usuarioEmail, mes, anio.toString());
+            console.log('💰 Transacciones obtenidas:', transaccionesDB?.length || 0);
+
+            // Organizar transacciones y gastos por categoría
+            const transPorCat = {};
+            const gastosPorCat = {};
+
+            (transaccionesDB || []).forEach(t => {
+                // CORRECCIÓN: Incluir todos los tipos de egreso
+                if (t.tipo === 'Egreso' || t.tipo === 'Gasto' || t.tipo === 'Pago') {
+                    const cat = t.categoria || 'Otros';
+                    if (!transPorCat[cat]) {
+                        transPorCat[cat] = [];
+                    }
+                    transPorCat[cat].push(t);
+                    gastosPorCat[cat] = (gastosPorCat[cat] || 0) + parseFloat(t.monto);
+                }
+            });
+
+            console.log('📊 Gastos por categoría:', gastosPorCat);
+            setTransaccionesPorCategoria(transPorCat);
+            setGastosPorCategoria(gastosPorCat);
+        } catch (error) {
+            console.error('❌ Error al cargar datos en presupuestos:', error);
+        }
     };
 
     const cambiarMes = (direccion) => {
@@ -278,9 +300,15 @@ export default function PresupuestosMensuales() {
         let totalLimite = 0;
         let totalGastado = 0;
 
-        presupuestos.forEach(p => {
-            totalLimite += p.monto_limite;
-            totalGastado += gastosPorCategoria[p.categoria] || 0;
+        // Categorías principales que queremos mostrar
+        const categoriasPrincipales = ['Comida', 'Transporte', 'Servicios', 'Otros'];
+
+        categoriasPrincipales.forEach(cat => {
+            const presupuesto = presupuestos.find(p => p.categoria === cat);
+            if (presupuesto) {
+                totalLimite += presupuesto.monto_limite;
+            }
+            totalGastado += gastosPorCategoria[cat] || 0;
         });
 
         return { totalLimite, totalGastado, restante: totalLimite - totalGastado };
@@ -288,6 +316,17 @@ export default function PresupuestosMensuales() {
 
     const totales = calcularTotales();
     const porcentajeGastado = totales.totalLimite > 0 ? Math.round((totales.totalGastado / totales.totalLimite) * 100) : 0;
+
+    // Helper para obtener datos de una categoría
+    const obtenerDatosCategoria = (categoria) => {
+        const presupuesto = presupuestos.find(p => p.categoria === categoria);
+        const gastado = gastosPorCategoria[categoria] || 0;
+        const limite = presupuesto?.monto_limite || 0;
+        const porcentaje = limite > 0 ? Math.min((gastado / limite) * 100, 100) : 0;
+        const transacciones = transaccionesPorCategoria[categoria] || [];
+
+        return { gastado, limite, porcentaje, transacciones };
+    };
 
     return (
         <View style={styles.container}>
@@ -336,25 +375,33 @@ export default function PresupuestosMensuales() {
 
                 {/* Categorías de presupuesto */}
                 <View style={styles.categories}>
+                    {/* Comida */}
                     <TouchableOpacity
                         style={styles.categoryItem}
-                        onPress={() => abrirDetalleCategoria('Supermercado')}
+                        onPress={() => abrirDetalleCategoria('Comida')}
                     >
                         <View style={[styles.categoryIcon, { backgroundColor: '#E3F2FD' }]}>
-                            <Ionicons name="cart" size={24} color="#2196F3" />
+                            <Ionicons name="fast-food" size={24} color="#2196F3" />
                         </View>
                         <View style={styles.categoryInfo}>
                             <View style={styles.categoryHeader}>
-                                <Text style={styles.categoryName}>Supermercado</Text>
-                                <Text style={styles.categoryAmount}>${(gastosPorCategoria['Supermercado'] || 0).toFixed(2)}</Text>
+                                <Text style={styles.categoryName}>Comida</Text>
+                                <Text style={styles.categoryAmount}>${obtenerDatosCategoria('Comida').gastado.toFixed(2)}</Text>
                             </View>
                             <View style={styles.categoryProgress}>
-                                <View style={[styles.progressBar, { backgroundColor: '#2196F3', width: '42.5%' }]} />
+                                <View style={[styles.progressBar, {
+                                    backgroundColor: obtenerDatosCategoria('Comida').porcentaje > 90 ? '#F44336' : '#2196F3',
+                                    width: `${obtenerDatosCategoria('Comida').porcentaje}%`
+                                }]} />
                             </View>
-                            <Text style={styles.transactionCount}>{transaccionesPorCategoria['Supermercado']?.length || 0} transacciones</Text>
+                            <Text style={styles.transactionCount}>
+                                {obtenerDatosCategoria('Comida').transacciones.length} transacciones
+                                {obtenerDatosCategoria('Comida').limite > 0 && ` • Límite: $${obtenerDatosCategoria('Comida').limite.toFixed(2)}`}
+                            </Text>
                         </View>
                     </TouchableOpacity>
 
+                    {/* Transporte */}
                     <TouchableOpacity
                         style={styles.categoryItem}
                         onPress={() => abrirDetalleCategoria('Transporte')}
@@ -365,15 +412,22 @@ export default function PresupuestosMensuales() {
                         <View style={styles.categoryInfo}>
                             <View style={styles.categoryHeader}>
                                 <Text style={styles.categoryName}>Transporte</Text>
-                                <Text style={styles.categoryAmount}>${(gastosPorCategoria['Transporte'] || 0).toFixed(2)}</Text>
+                                <Text style={styles.categoryAmount}>${obtenerDatosCategoria('Transporte').gastado.toFixed(2)}</Text>
                             </View>
                             <View style={styles.categoryProgress}>
-                                <View style={[styles.progressBar, { backgroundColor: '#FF9800', width: '30%' }]} />
+                                <View style={[styles.progressBar, {
+                                    backgroundColor: obtenerDatosCategoria('Transporte').porcentaje > 90 ? '#F44336' : '#FF9800',
+                                    width: `${obtenerDatosCategoria('Transporte').porcentaje}%`
+                                }]} />
                             </View>
-                            <Text style={styles.transactionCount}>{transaccionesPorCategoria['Transporte']?.length || 0} transacciones</Text>
+                            <Text style={styles.transactionCount}>
+                                {obtenerDatosCategoria('Transporte').transacciones.length} transacciones
+                                {obtenerDatosCategoria('Transporte').limite > 0 && ` • Límite: $${obtenerDatosCategoria('Transporte').limite.toFixed(2)}`}
+                            </Text>
                         </View>
                     </TouchableOpacity>
 
+                    {/* Servicios */}
                     <TouchableOpacity
                         style={styles.categoryItem}
                         onPress={() => abrirDetalleCategoria('Servicios')}
@@ -384,12 +438,44 @@ export default function PresupuestosMensuales() {
                         <View style={styles.categoryInfo}>
                             <View style={styles.categoryHeader}>
                                 <Text style={styles.categoryName}>Servicios</Text>
-                                <Text style={styles.categoryAmount}>${(gastosPorCategoria['Servicios'] || 0).toFixed(2)}</Text>
+                                <Text style={styles.categoryAmount}>${obtenerDatosCategoria('Servicios').gastado.toFixed(2)}</Text>
                             </View>
                             <View style={styles.categoryProgress}>
-                                <View style={[styles.progressBar, { backgroundColor: '#9C27B0', width: '22.5%' }]} />
+                                <View style={[styles.progressBar, {
+                                    backgroundColor: obtenerDatosCategoria('Servicios').porcentaje > 90 ? '#F44336' : '#9C27B0',
+                                    width: `${obtenerDatosCategoria('Servicios').porcentaje}%`
+                                }]} />
                             </View>
-                            <Text style={styles.transactionCount}>{transaccionesPorCategoria['Servicios']?.length || 0} transacciones</Text>
+                            <Text style={styles.transactionCount}>
+                                {obtenerDatosCategoria('Servicios').transacciones.length} transacciones
+                                {obtenerDatosCategoria('Servicios').limite > 0 && ` • Límite: $${obtenerDatosCategoria('Servicios').limite.toFixed(2)}`}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* Otros */}
+                    <TouchableOpacity
+                        style={styles.categoryItem}
+                        onPress={() => abrirDetalleCategoria('Otros')}
+                    >
+                        <View style={[styles.categoryIcon, { backgroundColor: '#E8F5E9' }]}>
+                            <Ionicons name="ellipsis-horizontal" size={24} color="#4CAF50" />
+                        </View>
+                        <View style={styles.categoryInfo}>
+                            <View style={styles.categoryHeader}>
+                                <Text style={styles.categoryName}>Otros</Text>
+                                <Text style={styles.categoryAmount}>${obtenerDatosCategoria('Otros').gastado.toFixed(2)}</Text>
+                            </View>
+                            <View style={styles.categoryProgress}>
+                                <View style={[styles.progressBar, {
+                                    backgroundColor: obtenerDatosCategoria('Otros').porcentaje > 90 ? '#F44336' : '#4CAF50',
+                                    width: `${obtenerDatosCategoria('Otros').porcentaje}%`
+                                }]} />
+                            </View>
+                            <Text style={styles.transactionCount}>
+                                {obtenerDatosCategoria('Otros').transacciones.length} transacciones
+                                {obtenerDatosCategoria('Otros').limite > 0 && ` • Límite: $${obtenerDatosCategoria('Otros').limite.toFixed(2)}`}
+                            </Text>
                         </View>
                     </TouchableOpacity>
                 </View>
@@ -428,17 +514,33 @@ export default function PresupuestosMensuales() {
                             {/* Resumen financiero */}
                             <View style={styles.resumenSection}>
                                 <View style={styles.resumenRow}>
-                                    <Text style={styles.resumenLabel}>Gastado</Text>
-                                    <Text style={styles.resumenValue}>${(gastosPorCategoria[categoriaSeleccionada] || 0).toFixed(2)}</Text>
+                                    <Text style={styles.resumenLabel}>Límite establecido</Text>
+                                    <Text style={styles.resumenValue}>${obtenerDatosCategoria(categoriaSeleccionada).limite.toFixed(2)}</Text>
                                 </View>
                                 <View style={styles.resumenRow}>
-                                    <Text style={styles.resumenLabel}>Próximo</Text>
-                                    <Text style={styles.resumenValue}>$0.00</Text>
+                                    <Text style={styles.resumenLabel}>Gastado</Text>
+                                    <Text style={[styles.resumenValue, obtenerDatosCategoria(categoriaSeleccionada).porcentaje > 90 && { color: '#F44336' }]}>
+                                        ${obtenerDatosCategoria(categoriaSeleccionada).gastado.toFixed(2)}
+                                    </Text>
                                 </View>
                                 <View style={styles.divider} />
                                 <View style={styles.resumenRow}>
-                                    <Text style={styles.totalLabel}>Total</Text>
-                                    <Text style={styles.totalValue}>${(gastosPorCategoria[categoriaSeleccionada] || 0).toFixed(2)}</Text>
+                                    <Text style={styles.totalLabel}>Restante</Text>
+                                    <Text style={[
+                                        styles.totalValue,
+                                        (obtenerDatosCategoria(categoriaSeleccionada).limite - obtenerDatosCategoria(categoriaSeleccionada).gastado) < 0 && { color: '#F44336' }
+                                    ]}>
+                                        ${(obtenerDatosCategoria(categoriaSeleccionada).limite - obtenerDatosCategoria(categoriaSeleccionada).gastado).toFixed(2)}
+                                    </Text>
+                                </View>
+                                <View style={styles.resumenRow}>
+                                    <Text style={styles.resumenLabel}>Progreso</Text>
+                                    <Text style={[
+                                        styles.resumenValue,
+                                        obtenerDatosCategoria(categoriaSeleccionada).porcentaje > 90 && { color: '#F44336' }
+                                    ]}>
+                                        {obtenerDatosCategoria(categoriaSeleccionada).porcentaje.toFixed(0)}%
+                                    </Text>
                                 </View>
                             </View>
 

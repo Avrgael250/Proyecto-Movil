@@ -36,7 +36,9 @@ export default function LoginScreen() {
     const usuario = await validarCredenciales(email, password);
 
     if (usuario) {
-      await guardarSesion(usuario.email);
+      console.log('💾 Guardando sesión para:', usuario.email);
+      const sesionGuardada = await guardarSesion(usuario.email);
+      console.log('✅ Sesión guardada:', sesionGuardada);
 
       // 👀 VER DATOS EN CONSOLA
       console.log('\n========== LOGIN EXITOSO ==========');

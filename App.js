@@ -5,7 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LogBox, ActivityIndicator, View, StyleSheet } from 'react-native';
-import { inicializarDB } from './database/database';
+import { inicializarDB, verificarOCrearSesionPrueba } from './database/database';
 
 // Ignorar advertencias específicas
 LogBox.ignoreLogs([
@@ -31,6 +31,12 @@ export default function App() {
     const iniciar = async () => {
       const resultado = await inicializarDB();
       setDbInicializada(resultado);
+
+      // Para desarrollo: crear sesión de prueba automáticamente
+      if (resultado) {
+        console.log('🔍 Verificando sesión de prueba...');
+        await verificarOCrearSesionPrueba();
+      }
     };
     iniciar();
   }, []);

@@ -15,13 +15,13 @@ import {
 } from 'react-native';
 import { categorias } from './DatosEjemplo';
 import ElementoTransaccion from './ElementoDeTransaccionScreen';
-import { 
-  inicializarDB, 
-  obtenerTransacciones, 
-  guardarTransaccion as guardarTransaccionDB, 
-  actualizarTransaccion, 
+import {
+  inicializarDB,
+  obtenerTransacciones,
+  guardarTransaccion as guardarTransaccionDB,
+  actualizarTransaccion,
   eliminarTransaccion as eliminarTransaccionDB,
-  obtenerSesion 
+  obtenerSesion
 } from '../database/database';
 
 const { width, height } = Dimensions.get('window');
@@ -92,11 +92,16 @@ const ScreenDeTransacciones = () => {
 
   const cargarTransacciones = async () => {
     try {
-      if (!usuarioEmail) return;
-      
+      if (!usuarioEmail) {
+        console.log('⚠️ No hay usuario email para cargar transacciones');
+        return;
+      }
+
+      console.log('🔄 Cargando transacciones para:', usuarioEmail);
       const transaccionesDB = await obtenerTransacciones(usuarioEmail);
-      
-      const transaccionesFormateadas = transaccionesDB.map(transaccion => ({
+      console.log('💰 Transacciones obtenidas:', transaccionesDB?.length || 0);
+
+      const transaccionesFormateadas = (transaccionesDB || []).map(transaccion => ({
         id: transaccion.id.toString(),
         tipo: transaccion.tipo.toLowerCase(),
         monto: parseFloat(transaccion.monto),
@@ -109,8 +114,8 @@ const ScreenDeTransacciones = () => {
       setTransacciones(transaccionesFormateadas);
       setTransaccionesFiltradas(transaccionesFormateadas);
     } catch (error) {
-      console.error('Error al cargar transacciones:', error);
-      Alert.alert('Error', 'No se pudieron cargar las transacciones');
+      console.error('❌ Error al cargar transacciones:', error);
+      Alert.alert('Error', 'No se pudieron cargar las transacciones: ' + error.message);
     }
   };
 
@@ -202,7 +207,7 @@ const ScreenDeTransacciones = () => {
         };
 
         const resultado = await actualizarTransaccion(transaccionEditando.id, transaccionActualizada);
-        
+
         if (resultado.success) {
           await cargarTransacciones();
           Alert.alert('Éxito', 'Transacción actualizada correctamente');
@@ -220,7 +225,7 @@ const ScreenDeTransacciones = () => {
         };
 
         const resultado = await guardarTransaccionDB(nuevaTransaccion, usuarioEmail);
-        
+
         if (resultado.success) {
           await cargarTransacciones();
           Alert.alert('Éxito', 'Transacción guardada correctamente');
