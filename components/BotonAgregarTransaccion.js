@@ -10,6 +10,8 @@ import {
 } from '../database/database';
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+// NUEVA LISTA DE CATEGORÍAS SIMPLIFICADAS
+const CATEGORIAS_LISTA = ['Comida', 'Transporte', 'Servicios', 'Otros']; 
 
 const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
     // Modal de selección de tipo
@@ -18,6 +20,9 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
     // Modal de agregar transacción
     const [modalAgregar, setModalAgregar] = useState(false);
     const [tipoTransaccion, setTipoTransaccion] = useState('');
+
+    // NUEVO: Modal de selección de categorías
+    const [modalCategorias, setModalCategorias] = useState(false); 
 
     // Campos del formulario
     const [monto, setMonto] = useState('');
@@ -45,8 +50,9 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
     const cargarDatosIniciales = async () => {
         const sesion = await obtenerSesion();
         if (sesion) {
-            setUsuarioEmail(sesion.email);
-            const cuentasDb = await obtenerCuentas(sesion.email);
+            // CORRECCIÓN: Se usa 'usuario_email' en la DB, no 'email'
+            setUsuarioEmail(sesion.usuario_email); 
+            const cuentasDb = await obtenerCuentas(sesion.usuario_email);
             const categoriasDb = await obtenerCategorias();
             setCuentas(cuentasDb || []);
             setCategorias(categoriasDb || []);
@@ -99,6 +105,21 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
         setModalAgregar(true);
     };
 
+    // NUEVOS HANDLERS PARA CATEGORÍA
+    const abrirModalCategorias = () => {
+        setModalCategorias(true);
+    };
+
+    const cerrarModalCategorias = () => {
+        setModalCategorias(false);
+    };
+
+    const seleccionarCategoria = (cat) => {
+        setCategoria(cat);
+        cerrarModalCategorias();
+    };
+    // FIN NUEVOS HANDLERS
+    
     const resetearFormulario = () => {
         setMonto('');
         setDescripcion('');
@@ -116,6 +137,11 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
     };
 
     const guardarNuevaTransaccion = async () => {
+        if (!usuarioEmail) {
+            Alert.alert('Error', 'Debes iniciar sesión para registrar una transacción.');
+            return;
+        }
+
         if (!monto || parseFloat(monto) <= 0) {
             Alert.alert('Error', 'Ingresa un monto válido');
             return;
@@ -265,6 +291,7 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                                 </View>
                                 <View style={styles.tipoTextos}>
                                     <Text style={styles.tipoTitulo}>Transferencia</Text>
+                                    {/* CORRECCIÓN DE SINTAXIS EN EL TEXTO */}
                                     <Text style={styles.tipoDescripcion}>
                                         Registra movimientos entre cuentas, como transferencia de cuenta de cheques a ahorro.
                                     </Text>
@@ -389,12 +416,13 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                                 <Text style={styles.campoTexto}>
                                     {fechaTransaccion.getDate()} {MESES[fechaTransaccion.getMonth()].toLowerCase()} {fechaTransaccion.getFullYear()}
                                 </Text>
+                                <Ionicons name="chevron-forward-outline" size={20} color="#666" />
                             </View>
                         </TouchableOpacity>
 
                         <View style={styles.separadorCampo} />
 
-                        {/* Cuenta */}
+                        {/* Cuenta (Añadido chevron para consistencia) */}
                         <View style={styles.campoSection}>
                             <Text style={styles.campoLabel}>Cuenta</Text>
                             <View style={styles.campoInputContainer}>
@@ -406,25 +434,26 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                                     placeholder="Selecciona cuenta"
                                     placeholderTextColor="#999"
                                 />
+                                <Ionicons name="chevron-forward-outline" size={20} color="#666" />
                             </View>
                         </View>
 
                         <View style={styles.separadorCampo} />
 
-                        {/* Categoría */}
-                        <View style={styles.campoSection}>
+                        {/* Categoría - REEMPLAZADO por TouchableOpacity para abrir modal */}
+                        <TouchableOpacity
+                            style={styles.campoSection}
+                            onPress={abrirModalCategorias}
+                        >
                             <Text style={styles.campoLabel}>Categoria</Text>
                             <View style={styles.campoInputContainer}>
                                 <Ionicons name="apps-outline" size={20} color="#666" />
-                                <TextInput
-                                    style={styles.campoInput}
-                                    value={categoria}
-                                    onChangeText={setCategoria}
-                                    placeholder="Selecciona categoría"
-                                    placeholderTextColor="#999"
-                                />
+                                <Text style={styles.campoTexto}>
+                                    {categoria || 'Selecciona categoría'}
+                                </Text>
+                                <Ionicons name="chevron-forward-outline" size={20} color="#666" />
                             </View>
-                        </View>
+                        </TouchableOpacity>
 
                         <View style={styles.separadorCampo} />
 
@@ -464,6 +493,53 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                         onChange={onChangeFecha}
                     />
                 )}
+            </Modal>
+            
+            {/* NUEVO: Modal de Selección de Categoría */}
+            <Modal
+                visible={modalCategorias}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={cerrarModalCategorias}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={cerrarModalCategorias}
+                >
+                    <View style={styles.modalTiposContainer}>
+                        <TouchableOpacity activeOpacity={1}>
+                            <View style={styles.modalHandle} />
+                            <Text style={styles.modalTiposTitulo}>Seleccionar Categoría</Text>
+
+                            <ScrollView>
+                                {CATEGORIAS_LISTA.map((cat, index) => (
+                                    <View key={cat}>
+                                        <TouchableOpacity
+                                            style={styles.tipoItem}
+                                            onPress={() => seleccionarCategoria(cat)}
+                                        >
+                                            <View style={styles.tipoTextos}>
+                                                <Text style={[
+                                                    styles.tipoTitulo, 
+                                                    cat === categoria && { color: '#4A8FE7' } 
+                                                ]}>
+                                                    {cat}
+                                                </Text>
+                                            </View>
+                                            {cat === categoria && (
+                                                <Ionicons name="checkmark" size={24} color="#4A8FE7" />
+                                            )}
+                                        </TouchableOpacity>
+                                        {index < CATEGORIAS_LISTA.length - 1 && (
+                                            <View style={styles.separador} />
+                                        )}
+                                    </View>
+                                ))}
+                            </ScrollView>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
             </Modal>
         </>
     );
@@ -628,6 +704,8 @@ const styles = StyleSheet.create({
     campoInputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
+        // Asegura que el texto y el chevron estén bien alineados
+        justifyContent: 'space-between', 
     },
     campoInput: {
         flex: 1,

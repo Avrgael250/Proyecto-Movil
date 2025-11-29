@@ -281,7 +281,7 @@ export const obtenerTransaccionesPorTipo = async (usuarioEmail, tipo) => {
     }
 };
 
-// Función para obtener resumen de transacciones por categoría para gráficas
+// Función para obtener resumen de transacciones por categoría para gráficas (ej: Ingreso)
 export const obtenerResumenPorCategoria = async (usuarioEmail, tipo) => {
     try {
         const result = await db.getAllAsync(
@@ -294,6 +294,23 @@ export const obtenerResumenPorCategoria = async (usuarioEmail, tipo) => {
         return result || [];
     } catch (error) {
         console.error('Error al obtener resumen por categoría:', error);
+        return [];
+    }
+};
+
+// Función NUEVA para obtener resumen de Egresos (Gasto + Pago) por categoría para gráficas
+export const obtenerResumenEgresos = async (usuarioEmail) => {
+    try {
+        const result = await db.getAllAsync(
+            `SELECT categoria, SUM(monto) as total 
+       FROM transacciones 
+       WHERE usuario_email = ? AND tipo IN ('Gasto', 'Pago', 'Reembolso') 
+       GROUP BY categoria`,
+            [usuarioEmail.toLowerCase()]
+        );
+        return result || [];
+    } catch (error) {
+        console.error('Error al obtener resumen de egresos:', error);
         return [];
     }
 };
@@ -328,7 +345,7 @@ export const obtenerTotalesPorMes = async (usuarioEmail, mes, año) => {
 
         const egresos = await db.getFirstAsync(
             `SELECT SUM(monto) as total FROM transacciones 
-       WHERE usuario_email = ? AND tipo = 'Egreso'
+       WHERE usuario_email = ? AND tipo IN ('Gasto', 'Pago')
        AND strftime('%m', fecha) = ? AND strftime('%Y', fecha) = ?`,
             [usuarioEmail.toLowerCase(), mes.padStart(2, '0'), año]
         );
@@ -440,7 +457,7 @@ export const verificarPresupuestoExcedido = async (usuarioEmail, categoria, mes,
 
         const gastosCategoria = await db.getFirstAsync(
             `SELECT SUM(monto) as total FROM transacciones 
-       WHERE usuario_email = ? AND categoria = ? AND tipo = 'Egreso'
+       WHERE usuario_email = ? AND categoria = ? AND tipo IN ('Gasto', 'Pago')
        AND strftime('%m', fecha) = ? AND strftime('%Y', fecha) = ?`,
             [usuarioEmail.toLowerCase(), categoria, mes.padStart(2, '0'), año]
         );

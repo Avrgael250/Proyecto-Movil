@@ -1,27 +1,48 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Platform, Dimensions, StatusBar, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, Platform, Dimensions, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import * as NavigationBar from 'expo-navigation-bar';
 import { PieChart } from 'react-native-chart-kit';
+import BotonAgregarTransaccion from '../components/BotonAgregarTransaccion';
+import {
+    guardarPresupuesto,
+    obtenerPresupuestosPorMes,
+    obtenerPresupuestoPorCategoria,
+    actualizarPresupuesto,
+    eliminarPresupuesto,
+    obtenerSesion,
+    obtenerTransaccionesDelMes,
+    actualizarTransaccion,
+    eliminarTransaccion,
+    obtenerResumenPorCategoria, // Función para Ingresos
+    obtenerResumenEgresos // Función para Egresos (nueva)
+} from '../database/database';
 
 const { width } = Dimensions.get('window');
 
 const opcionesReporte = ['Ingresos', 'Egresos', 'Historial'];
 const opcionesTiempo = ['Semana', 'Mes', 'Año'];
 
-const dataEgresosBase = [
-    { name: 'Comida', population: 40, color: '#F4D03F' }, 
-    { name: 'Transporte', population: 28, color: '#5DADE2' },
-    { name: 'Servicios', population: 22, color: '#EC7063' },
-    { name: 'Otros', population: 10, color: '#FF9800' },
-];
+// Se definen los colores para las categorías para que sean consistentes
+const COLOR_MAP = {
+    'Supermercado': '#F4D03F',
+    'Transporte': '#5DADE2',
+    'Servicios': '#EC7063',
+    'Restaurantes': '#A569BD',
+    'Entretenimiento': '#48C9B0',
+    'Salud': '#F5B041',
+    'Educación': '#D98880',
+    'Ropa': '#5499C7',
+    'Otros': '#85C1E9',
+    'Sin categoría': '#A9CCE3',
+    // Colores de Ingreso (ejemplos)
+    'Salario': '#030213',
+    'Inversiones': '#2ECC71',
+    'Extras': '#FF9800',
+};
 
-const dataIngresosBase = [
-    { name: 'Salario', population: 72, color: '#5DADE2' },
-    { name: 'Inversiones', population: 20, color: '#F4D03F' },
-    { name: 'Extras', population: 8, color: '#EC7063' },
-];
+const getColor = (categoryName) => COLOR_MAP[categoryName] || '#99A3A4';
 
 const OpcionSelector = ({ opciones, selected, onSelect }) => (
     <View style={styles.opcionSelectorContainer}>
@@ -71,15 +92,19 @@ const GraficoPastelFuncional = ({ data, tiempoSeleccionado, onSelectTiempo }) =>
     
     // Lógica para obtener el texto de la fecha según el filtro seleccionado
     const getDynamicDateText = (selectedTime) => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        
         switch (selectedTime) {
             case 'Semana':
-                return '24 Nov - 30 Nov 2025';
+                return 'Últimos 7 días';
             case 'Mes':
-                return 'Noviembre de 2025';
+                return `${monthNames[now.getMonth()]} de ${year}`;
             case 'Año':
-                return '2025';
+                return `${year}`;
             default:
-                return 'Noviembre de 2025';
+                return 'Datos por tipo';
         }
     };
     
@@ -143,24 +168,81 @@ const GraficoPastelFuncional = ({ data, tiempoSeleccionado, onSelectTiempo }) =>
 
 export default function GraficasScreen() {
     const isFocused = useIsFocused();
+    const navigation = useNavigation();
     
     const [reporteSeleccionado, setReporteSeleccionado] = useState('Egresos');
     const [tiempoSeleccionado, setTiempoSeleccionado] = useState('Mes'); 
-    const [currentData, setCurrentData] = useState(dataEgresosBase); 
-    // Usamos este estado auxiliar para saber qué reporte se estaba viendo antes de ir a Historial
+    const [currentData, setCurrentData] = useState([]); 
     const [lastReporte, setLastReporte] = useState('Egresos'); 
+    const [usuarioEmail, setUsuarioEmail] = useState(null); 
+    const [isLoading, setIsLoading] = useState(true); 
 
-    useEffect(() => {
-        if (reporteSeleccionado === 'Ingresos') {
-            setCurrentData(dataIngresosBase);
-            setLastReporte('Ingresos');
-        } else if (reporteSeleccionado === 'Egresos') {
-            setCurrentData(dataEgresosBase);
-            setLastReporte('Egresos');
-        } else if (reporteSeleccionado === 'Historial') {
-            setCurrentData([]); 
+    // Función para procesar y formatear los datos de la DB
+    const procesarDatosParaGrafica = (data) => {
+        if (!data || data.length === 0) return [];
+        
+        const total = data.reduce((sum, item) => sum + item.total, 0);
+
+        if (total === 0) return [];
+
+        return data.map((item) => ({
+            name: item.categoria,
+            // Calcular porcentaje y redondear
+            population: Math.round((item.total / total) * 100), 
+            color: getColor(item.categoria),
+            legendFontColor: '#7F7F7F',
+            legendFontSize: 15,
+        })).filter(item => item.population > 0); // Solo incluir con porcentaje > 0
+    };
+
+    // Función principal para cargar datos de la base de datos
+    const cargarDatosGraficas = useCallback(async (reporte, tiempo) => {
+        setIsLoading(true);
+        const sesion = await obtenerSesion();
+
+        if (!sesion?.usuario_email) {
+            setUsuarioEmail(null);
+            setCurrentData([]);
+            setIsLoading(false);
+            return;
         }
-    }, [reporteSeleccionado]);
+
+        const email = sesion.usuario_email;
+        setUsuarioEmail(email);
+
+        if (reporte === 'Historial') {
+            setCurrentData([]);
+            setIsLoading(false);
+            return;
+        }
+        
+        let resumenDb = [];
+        try {
+            if (reporte === 'Ingresos') {
+                // Usa obtenerResumenPorCategoria con el tipo 'Ingreso'
+                resumenDb = await obtenerResumenPorCategoria(email, 'Ingreso');
+            } else if (reporte === 'Egresos') {
+                // Usa la nueva función que suma 'Gasto', 'Pago' y 'Reembolso'
+                resumenDb = await obtenerResumenEgresos(email); 
+            }
+            
+            const dataFormateada = procesarDatosParaGrafica(resumenDb);
+            setCurrentData(dataFormateada);
+
+        } catch (error) {
+            console.error('Error al cargar datos de gráfica:', error);
+            setCurrentData([]);
+        } finally {
+            setIsLoading(false);
+        }
+
+    }, []); 
+    
+    // Función de recarga para el botón
+    const handleTransaccionGuardada = () => {
+        // Recargar los datos con el reporte y tiempo actual
+        cargarDatosGraficas(reporteSeleccionado, tiempoSeleccionado);
+    };
 
     useEffect(() => {
         const hideSystemBars = async () => {
@@ -186,12 +268,21 @@ export default function GraficasScreen() {
     
         if (isFocused) {
             hideSystemBars();
+            // Carga inicial al enfocar o al cambiar de reporte/tiempo
+            cargarDatosGraficas(reporteSeleccionado, tiempoSeleccionado); 
         }
     
         return () => {
             showSystemBars();
         };
-    }, [isFocused]);
+    }, [isFocused, reporteSeleccionado, tiempoSeleccionado, cargarDatosGraficas]);
+
+    useEffect(() => {
+        // Lógica para actualizar lastReporte al cambiar el reporteSeleccionado
+        if (reporteSeleccionado !== 'Historial') {
+            setLastReporte(reporteSeleccionado);
+        }
+    }, [reporteSeleccionado]);
 
     const isHistorial = reporteSeleccionado === 'Historial';
 
@@ -208,7 +299,12 @@ export default function GraficasScreen() {
 
                 <ScrollView contentContainerStyle={styles.contenidoScroll}>
                     
-                    {!isHistorial ? (
+                    {isLoading ? ( // Muestra indicador de carga
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="large" color="#4A8FE7" />
+                            <Text style={styles.loadingText}>Cargando datos...</Text>
+                        </View>
+                    ) : !isHistorial ? (
                         <GraficoPastelFuncional 
                             data={currentData}
                             tiempoSeleccionado={tiempoSeleccionado}
@@ -227,6 +323,8 @@ export default function GraficasScreen() {
 
                 </ScrollView>
             </View>
+            {/* BotonAgregarTransaccion se coloca fuera del ScrollView para que sea flotante */}
+            <BotonAgregarTransaccion onTransaccionGuardada={handleTransaccionGuardada} />
         </SafeAreaView>
     );
 }
@@ -386,5 +484,20 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666666',
         textAlign: 'center',
+    },
+    // Estilos nuevos para el indicador de carga
+    loadingContainer: {
+        width: '100%',
+        height: 200, 
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 10,
+        padding: 20,
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#666',
     },
 });
