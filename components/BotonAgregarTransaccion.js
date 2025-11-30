@@ -5,13 +5,13 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import {
     guardarTransaccion,
     obtenerSesion,
-    obtenerCuentas,
+    obtenerCuentasUsuario,
     obtenerCategorias
 } from '../database/database';
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 // NUEVA LISTA DE CATEGORÍAS SIMPLIFICADAS
-const CATEGORIAS_LISTA = ['Comida', 'Transporte', 'Servicios', 'Otros']; 
+const CATEGORIAS_LISTA = ['Comida', 'Transporte', 'Servicios', 'Otros'];
 
 const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
     // Modal de selección de tipo
@@ -22,7 +22,10 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
     const [tipoTransaccion, setTipoTransaccion] = useState('');
 
     // NUEVO: Modal de selección de categorías
-    const [modalCategorias, setModalCategorias] = useState(false); 
+    const [modalCategorias, setModalCategorias] = useState(false);
+
+    // NUEVO: Modal de selección de cuentas
+    const [modalCuentas, setModalCuentas] = useState(false);
 
     // Campos del formulario
     const [monto, setMonto] = useState('');
@@ -48,14 +51,22 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
     }, []);
 
     const cargarDatosIniciales = async () => {
-        const sesion = await obtenerSesion();
-        if (sesion) {
-            // CORRECCIÓN: Se usa 'usuario_email' en la DB, no 'email'
-            setUsuarioEmail(sesion.usuario_email); 
-            const cuentasDb = await obtenerCuentas(sesion.usuario_email);
-            const categoriasDb = await obtenerCategorias();
-            setCuentas(cuentasDb || []);
-            setCategorias(categoriasDb || []);
+        try {
+            const sesion = await obtenerSesion();
+            console.log('📧 Sesión obtenida:', sesion);
+            if (sesion) {
+                // CORRECCIÓN: Se usa 'usuario_email' en la DB, no 'email'
+                setUsuarioEmail(sesion.usuario_email);
+                const cuentasDb = await obtenerCuentasUsuario(sesion.usuario_email);
+                console.log('💳 Cuentas cargadas:', cuentasDb);
+                const categoriasDb = await obtenerCategorias();
+                setCuentas(cuentasDb || []);
+                setCategorias(categoriasDb || []);
+            } else {
+                console.log('⚠️ No hay sesión activa');
+            }
+        } catch (error) {
+            console.error('❌ Error al cargar datos iniciales:', error);
         }
     };
 
@@ -118,8 +129,34 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
         setCategoria(cat);
         cerrarModalCategorias();
     };
+
+    // NUEVOS HANDLERS PARA CUENTA
+    const abrirModalCuentas = async () => {
+        // Recargar cuentas cada vez que se abre el modal
+        try {
+            const sesion = await obtenerSesion();
+            console.log('🔄 Recargando cuentas - Sesión:', sesion);
+            if (sesion) {
+                const cuentasDb = await obtenerCuentasUsuario(sesion.usuario_email);
+                console.log('💳 Cuentas recargadas:', cuentasDb);
+                setCuentas(cuentasDb || []);
+            }
+        } catch (error) {
+            console.error('❌ Error al recargar cuentas:', error);
+        }
+        setModalCuentas(true);
+    };
+
+    const cerrarModalCuentas = () => {
+        setModalCuentas(false);
+    };
+
+    const seleccionarCuenta = (cuentaNombre) => {
+        setCuenta(cuentaNombre);
+        cerrarModalCuentas();
+    };
     // FIN NUEVOS HANDLERS
-    
+
     const resetearFormulario = () => {
         setMonto('');
         setDescripcion('');
@@ -152,29 +189,80 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
             return;
         }
 
+        if (!cuenta) {
+            Alert.alert('Error', 'Selecciona una cuenta');
+            return;
+        }
+
+        // Determinar el tipo correcto según la selección
+        let tipoFinal = tipoTransaccion;
+
+        // Mapear tipos de transacción
+        if (tipoTransaccion === 'Gasto' || tipoTransaccion === 'Pago') {
+            tipoFinal = 'Gasto'; // Ambos son egresos
+        } else if (tipoTransaccion === 'Ingreso' || tipoTransaccion === 'Reembolso') {
+            tipoFinal = 'Ingreso'; // Ambos son ingresos
+        } else if (tipoTransaccion === 'Transferencia') {
+            tipoFinal = 'Transferencia';
+        }
+
         const nuevaTransaccion = {
-            tipo: tipoTransaccion,
+            tipo: tipoFinal,
             monto: parseFloat(monto),
             descripcion: descripcion,
             fecha_transaccion: fechaTransaccion.toISOString().split('T')[0],
             fecha_pago: fechaTransaccion.toISOString().split('T')[0],
-            cuenta: cuenta || 'Sin cuenta',
-            categoria: categoria || 'Sin categoría',
+            cuenta: cuenta,
+            categoria: categoria || 'Otros',
             notas: notas
         };
 
         try {
-            await guardarTransaccion(nuevaTransaccion, usuarioEmail);
-            Alert.alert('Éxito', 'Transacción guardada correctamente');
-            setModalAgregar(false);
-            resetearFormulario();
+            console.log('🚀 Iniciando guardado de transacción...', nuevaTransaccion);
 
-            // Notificar al componente padre que se guardó una transacción
-            if (onTransaccionGuardada) {
-                onTransaccionGuardada();
+            // Guardar transacción Y actualizar saldo de cuenta automáticamente
+            const resultado = await guardarTransaccion(nuevaTransaccion, usuarioEmail);
+
+            if (resultado.success) {
+                console.log('✅ Transacción guardada exitosamente');
+
+                // Mensaje personalizado según tipo
+                let mensaje = '';
+                switch (tipoTransaccion) {
+                    case 'Gasto':
+                        mensaje = `💸 Gasto de $${monto} registrado y descontado de ${cuenta}`;
+                        break;
+                    case 'Pago':
+                        mensaje = `💳 Pago de $${monto} registrado y descontado de ${cuenta}`;
+                        break;
+                    case 'Ingreso':
+                        mensaje = `💰 Ingreso de $${monto} registrado y sumado a ${cuenta}`;
+                        break;
+                    case 'Transferencia':
+                        mensaje = `🔄 Transferencia de $${monto} registrada`;
+                        break;
+                    case 'Reembolso':
+                        mensaje = `↩️ Reembolso de $${monto} registrado y sumado a ${cuenta}`;
+                        break;
+                    default:
+                        mensaje = '✅ Transacción guardada correctamente';
+                }
+
+                Alert.alert('Éxito', mensaje);
+                setModalAgregar(false);
+                resetearFormulario();
+
+                // Notificar al componente padre que se guardó una transacción
+                if (onTransaccionGuardada) {
+                    onTransaccionGuardada();
+                }
+            } else {
+                console.error('❌ Error al guardar:', resultado.error);
+                Alert.alert('Error', resultado.error || 'No se pudo guardar la transacción');
             }
         } catch (error) {
-            Alert.alert('Error', 'No se pudo guardar la transacción');
+            console.error('❌ Error en guardarNuevaTransaccion:', error);
+            Alert.alert('Error', 'No se pudo guardar la transacción: ' + error.message);
         }
     };
 
@@ -372,6 +460,50 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                     </View>
 
                     <ScrollView style={styles.modalAgregarContenido}>
+                        {/* Info banner según tipo */}
+                        <View style={styles.infoBanner}>
+                            {tipoTransaccion === 'Gasto' && (
+                                <>
+                                    <Ionicons name="trending-down" size={20} color="#EF4444" />
+                                    <Text style={styles.infoBannerTexto}>
+                                        Este monto se descontará del saldo de tu cuenta
+                                    </Text>
+                                </>
+                            )}
+                            {tipoTransaccion === 'Pago' && (
+                                <>
+                                    <Ionicons name="card-outline" size={20} color="#EF4444" />
+                                    <Text style={styles.infoBannerTexto}>
+                                        Este pago se descontará del saldo de tu cuenta
+                                    </Text>
+                                </>
+                            )}
+                            {tipoTransaccion === 'Ingreso' && (
+                                <>
+                                    <Ionicons name="trending-up" size={20} color="#10B981" />
+                                    <Text style={styles.infoBannerTexto}>
+                                        Este monto se sumará al saldo de tu cuenta
+                                    </Text>
+                                </>
+                            )}
+                            {tipoTransaccion === 'Transferencia' && (
+                                <>
+                                    <Ionicons name="swap-horizontal" size={20} color="#3B82F6" />
+                                    <Text style={styles.infoBannerTexto}>
+                                        Mueve dinero entre tus cuentas
+                                    </Text>
+                                </>
+                            )}
+                            {tipoTransaccion === 'Reembolso' && (
+                                <>
+                                    <Ionicons name="arrow-undo" size={20} color="#10B981" />
+                                    <Text style={styles.infoBannerTexto}>
+                                        Este reembolso se sumará al saldo de tu cuenta
+                                    </Text>
+                                </>
+                            )}
+                        </View>
+
                         {/* Monto */}
                         <View style={styles.montoSection}>
                             <Text style={styles.montoLabel}>Monto</Text>
@@ -422,21 +554,20 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
 
                         <View style={styles.separadorCampo} />
 
-                        {/* Cuenta (Añadido chevron para consistencia) */}
-                        <View style={styles.campoSection}>
+                        {/* Cuenta - ACTUALIZADO para abrir modal */}
+                        <TouchableOpacity
+                            style={styles.campoSection}
+                            onPress={abrirModalCuentas}
+                        >
                             <Text style={styles.campoLabel}>Cuenta</Text>
                             <View style={styles.campoInputContainer}>
                                 <Ionicons name="wallet-outline" size={20} color="#666" />
-                                <TextInput
-                                    style={styles.campoInput}
-                                    value={cuenta}
-                                    onChangeText={setCuenta}
-                                    placeholder="Selecciona cuenta"
-                                    placeholderTextColor="#999"
-                                />
+                                <Text style={styles.campoTexto}>
+                                    {cuenta || 'Selecciona cuenta'}
+                                </Text>
                                 <Ionicons name="chevron-forward-outline" size={20} color="#666" />
                             </View>
-                        </View>
+                        </TouchableOpacity>
 
                         <View style={styles.separadorCampo} />
 
@@ -494,7 +625,7 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                     />
                 )}
             </Modal>
-            
+
             {/* NUEVO: Modal de Selección de Categoría */}
             <Modal
                 visible={modalCategorias}
@@ -521,8 +652,8 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                                         >
                                             <View style={styles.tipoTextos}>
                                                 <Text style={[
-                                                    styles.tipoTitulo, 
-                                                    cat === categoria && { color: '#4A8FE7' } 
+                                                    styles.tipoTitulo,
+                                                    cat === categoria && { color: '#4A8FE7' }
                                                 ]}>
                                                     {cat}
                                                 </Text>
@@ -536,6 +667,69 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                                         )}
                                     </View>
                                 ))}
+                            </ScrollView>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* NUEVO: Modal de Selección de Cuenta */}
+            <Modal
+                visible={modalCuentas}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={cerrarModalCuentas}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={cerrarModalCuentas}
+                >
+                    <View style={styles.modalTiposContainer}>
+                        <TouchableOpacity activeOpacity={1}>
+                            <View style={styles.modalHandle} />
+                            <Text style={styles.modalTiposTitulo}>Seleccionar Cuenta</Text>
+
+                            <ScrollView>
+                                {cuentas.length === 0 ? (
+                                    <View style={styles.emptyCuentas}>
+                                        <Ionicons name="wallet-outline" size={48} color="#CCC" />
+                                        <Text style={styles.emptyCuentasText}>No hay cuentas registradas</Text>
+                                        <Text style={styles.emptyCuentasSubtext}>
+                                            Ve a la sección de Cuentas para agregar una
+                                        </Text>
+                                    </View>
+                                ) : (
+                                    cuentas.map((cuentaItem, index) => (
+                                        <View key={cuentaItem.id}>
+                                            <TouchableOpacity
+                                                style={styles.tipoItem}
+                                                onPress={() => seleccionarCuenta(cuentaItem.nombre)}
+                                            >
+                                                <View style={styles.tipoIcono}>
+                                                    <Ionicons name={cuentaItem.icono || 'wallet'} size={24} color="#000" />
+                                                </View>
+                                                <View style={styles.tipoTextos}>
+                                                    <Text style={[
+                                                        styles.tipoTitulo,
+                                                        cuentaItem.nombre === cuenta && { color: '#4A8FE7' }
+                                                    ]}>
+                                                        {cuentaItem.nombre}
+                                                    </Text>
+                                                    <Text style={styles.tipoDescripcion}>
+                                                        Saldo: ${cuentaItem.saldo.toFixed(2)}
+                                                    </Text>
+                                                </View>
+                                                {cuentaItem.nombre === cuenta && (
+                                                    <Ionicons name="checkmark" size={24} color="#4A8FE7" />
+                                                )}
+                                            </TouchableOpacity>
+                                            {index < cuentas.length - 1 && (
+                                                <View style={styles.separador} />
+                                            )}
+                                        </View>
+                                    ))
+                                )}
                             </ScrollView>
                         </TouchableOpacity>
                     </View>
@@ -666,6 +860,26 @@ const styles = StyleSheet.create({
     modalAgregarContenido: {
         flex: 1,
     },
+    infoBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0F9FF',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        marginHorizontal: 16,
+        marginTop: 16,
+        marginBottom: 8,
+        borderRadius: 8,
+        borderLeftWidth: 4,
+        borderLeftColor: '#3B82F6',
+        gap: 12,
+    },
+    infoBannerTexto: {
+        flex: 1,
+        fontSize: 13,
+        color: '#1E40AF',
+        lineHeight: 18,
+    },
     montoSection: {
         backgroundColor: '#fff',
         paddingVertical: 20,
@@ -705,7 +919,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         // Asegura que el texto y el chevron estén bien alineados
-        justifyContent: 'space-between', 
+        justifyContent: 'space-between',
     },
     campoInput: {
         flex: 1,
@@ -740,6 +954,23 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    emptyCuentas: {
+        alignItems: 'center',
+        paddingVertical: 40,
+        paddingHorizontal: 20,
+    },
+    emptyCuentasText: {
+        fontSize: 16,
+        color: '#666',
+        marginTop: 16,
+        fontWeight: '500',
+    },
+    emptyCuentasSubtext: {
+        fontSize: 14,
+        color: '#999',
+        marginTop: 8,
+        textAlign: 'center',
     },
 });
 

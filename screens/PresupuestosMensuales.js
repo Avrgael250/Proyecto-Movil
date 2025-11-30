@@ -84,13 +84,20 @@ export default function PresupuestosMensuales() {
 
     useEffect(() => {
         const cargarSesion = async () => {
-            const sesion = await obtenerSesion();
-            if (sesion) {
-                setUsuarioEmail(sesion.usuario_email);
+            try {
+                const sesion = await obtenerSesion();
+                if (sesion) {
+                    setUsuarioEmail(sesion.usuario_email);
+                    console.log('✅ Sesión cargada en Presupuestos:', sesion.usuario_email);
+                } else {
+                    console.log('⚠️ No hay sesión activa en Presupuestos');
+                }
+            } catch (error) {
+                console.error('❌ Error al cargar sesión en Presupuestos:', error);
             }
         };
         cargarSesion();
-    }, []);
+    }, [isFocused]);
 
     useEffect(() => {
         if (usuarioEmail) {
@@ -99,31 +106,46 @@ export default function PresupuestosMensuales() {
     }, [usuarioEmail, mesIndex, anio]);
 
     const cargarDatos = async () => {
-        const mes = (mesIndex + 1).toString();
-
-        // Obtener presupuestos del mes
-        const presupuestosDB = await obtenerPresupuestosPorMes(usuarioEmail, mes, anio.toString());
-        setPresupuestos(presupuestosDB);
-
-        // Obtener transacciones del mes
-        const transaccionesDB = await obtenerTransaccionesDelMes(usuarioEmail, mes, anio.toString());
-
-        // Organizar transacciones y gastos por categoría
-        const transPorCat = {};
-        const gastosPorCat = {};
-
-        transaccionesDB.forEach(t => {
-            if (t.tipo === 'Egreso') {
-                if (!transPorCat[t.categoria]) {
-                    transPorCat[t.categoria] = [];
-                }
-                transPorCat[t.categoria].push(t);
-                gastosPorCat[t.categoria] = (gastosPorCat[t.categoria] || 0) + t.monto;
+        try {
+            if (!usuarioEmail) {
+                console.log('⚠️ No hay usuario email para cargar datos');
+                return;
             }
-        });
 
-        setTransaccionesPorCategoria(transPorCat);
-        setGastosPorCategoria(gastosPorCat);
+            const mes = (mesIndex + 1).toString();
+            console.log('🔄 Cargando datos para:', usuarioEmail, 'mes:', mes, 'año:', anio);
+
+            // Obtener presupuestos del mes
+            const presupuestosDB = await obtenerPresupuestosPorMes(usuarioEmail, mes, anio.toString());
+            console.log('📊 Presupuestos obtenidos:', presupuestosDB?.length || 0);
+            setPresupuestos(presupuestosDB || []);
+
+            // Obtener transacciones del mes
+            const transaccionesDB = await obtenerTransaccionesDelMes(usuarioEmail, mes, anio.toString());
+            console.log('💰 Transacciones obtenidas:', transaccionesDB?.length || 0);
+
+            // Organizar transacciones y gastos por categoría
+            const transPorCat = {};
+            const gastosPorCat = {};
+
+            (transaccionesDB || []).forEach(t => {
+                // CORRECCIÓN: Incluir todos los tipos de egreso
+                if (t.tipo === 'Egreso' || t.tipo === 'Gasto' || t.tipo === 'Pago') {
+                    const cat = t.categoria || 'Otros';
+                    if (!transPorCat[cat]) {
+                        transPorCat[cat] = [];
+                    }
+                    transPorCat[cat].push(t);
+                    gastosPorCat[cat] = (gastosPorCat[cat] || 0) + parseFloat(t.monto);
+                }
+            });
+
+            console.log('📊 Gastos por categoría:', gastosPorCat);
+            setTransaccionesPorCategoria(transPorCat);
+            setGastosPorCategoria(gastosPorCat);
+        } catch (error) {
+            console.error('❌ Error al cargar datos en presupuestos:', error);
+        }
     };
 
     const cambiarMes = (direccion) => {
@@ -169,30 +191,40 @@ export default function PresupuestosMensuales() {
             return;
         }
 
-        const mes = (mesIndex + 1).toString();
-        const presupuestoCat = presupuestos.find(p => p.categoria === categoriaSeleccionada);
+        try {
+            const mes = (mesIndex + 1).toString();
+            const presupuestoCat = presupuestos.find(p => p.categoria === categoriaSeleccionada);
 
-        if (presupuestoCat) {
-            const presupuestoActualizado = {
-                categoria: categoriaSeleccionada,
-                monto_limite: parseFloat(montoLimite),
-                mes: mes,
-                año: anio.toString()
-            };
-            await actualizarPresupuesto(presupuestoCat.id, presupuestoActualizado);
-        } else {
-            const nuevoPresupuesto = {
-                categoria: categoriaSeleccionada,
-                monto_limite: parseFloat(montoLimite),
-                mes: mes,
-                año: anio.toString()
-            };
-            await guardarPresupuesto(nuevoPresupuesto, usuarioEmail);
+            if (presupuestoCat) {
+                // Actualizar presupuesto existente
+                const presupuestoActualizado = {
+                    categoria: categoriaSeleccionada,
+                    monto_limite: parseFloat(montoLimite),
+                    mes: mes,
+                    año: anio.toString()
+                };
+                await actualizarPresupuesto(presupuestoCat.id, presupuestoActualizado);
+                console.log('✅ Presupuesto actualizado:', categoriaSeleccionada, montoLimite);
+            } else {
+                // Crear nuevo presupuesto
+                const nuevoPresupuesto = {
+                    categoria: categoriaSeleccionada,
+                    monto_limite: parseFloat(montoLimite),
+                    mes: mes,
+                    año: anio.toString()
+                };
+                await guardarPresupuesto(nuevoPresupuesto, usuarioEmail);
+                console.log('✅ Presupuesto creado:', categoriaSeleccionada, montoLimite);
+            }
+
+            setModalEstablecerLimite(false);
+            setModalDetalle(false);
+            Alert.alert('Éxito', `Límite de $${montoLimite} establecido para ${categoriaSeleccionada}`);
+            await cargarDatos();
+        } catch (error) {
+            console.error('❌ Error al guardar presupuesto:', error);
+            Alert.alert('Error', 'No se pudo guardar el presupuesto');
         }
-
-        setModalEstablecerLimite(false);
-        Alert.alert('Éxito', 'Límite establecido para este período');
-        cargarDatos();
     };
 
     const aplicarLimiteTodosPeriodos = async () => {
@@ -202,8 +234,40 @@ export default function PresupuestosMensuales() {
         }
 
         setModalEstablecerLimite(false);
+        setModalDetalle(false);
         Alert.alert('Éxito', 'Límite establecido para todos los períodos');
         cargarDatos();
+    };
+
+    const eliminarPresupuestoCategoria = async () => {
+        if (!categoriaSeleccionada) return;
+
+        Alert.alert(
+            'Confirmar',
+            `¿Deseas eliminar el presupuesto de ${categoriaSeleccionada}?`,
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Eliminar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const presupuestoCat = presupuestos.find(p => p.categoria === categoriaSeleccionada);
+                            if (presupuestoCat) {
+                                await eliminarPresupuesto(presupuestoCat.id);
+                                console.log('🗑️ Presupuesto eliminado:', categoriaSeleccionada);
+                                setModalDetalle(false);
+                                Alert.alert('Éxito', 'Presupuesto eliminado');
+                                await cargarDatos();
+                            }
+                        } catch (error) {
+                            console.error('❌ Error al eliminar presupuesto:', error);
+                            Alert.alert('Error', 'No se pudo eliminar el presupuesto');
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const abrirEdicionTransaccion = (transaccion) => {
@@ -278,9 +342,15 @@ export default function PresupuestosMensuales() {
         let totalLimite = 0;
         let totalGastado = 0;
 
-        presupuestos.forEach(p => {
-            totalLimite += p.monto_limite;
-            totalGastado += gastosPorCategoria[p.categoria] || 0;
+        // Categorías principales que queremos mostrar
+        const categoriasPrincipales = ['Comida', 'Transporte', 'Servicios', 'Otros'];
+
+        categoriasPrincipales.forEach(cat => {
+            const presupuesto = presupuestos.find(p => p.categoria === cat);
+            if (presupuesto) {
+                totalLimite += presupuesto.monto_limite;
+            }
+            totalGastado += gastosPorCategoria[cat] || 0;
         });
 
         return { totalLimite, totalGastado, restante: totalLimite - totalGastado };
@@ -288,6 +358,17 @@ export default function PresupuestosMensuales() {
 
     const totales = calcularTotales();
     const porcentajeGastado = totales.totalLimite > 0 ? Math.round((totales.totalGastado / totales.totalLimite) * 100) : 0;
+
+    // Helper para obtener datos de una categoría
+    const obtenerDatosCategoria = (categoria) => {
+        const presupuesto = presupuestos.find(p => p.categoria === categoria);
+        const gastado = gastosPorCategoria[categoria] || 0;
+        const limite = presupuesto?.monto_limite || 0;
+        const porcentaje = limite > 0 ? Math.min((gastado / limite) * 100, 100) : 0;
+        const transacciones = transaccionesPorCategoria[categoria] || [];
+
+        return { gastado, limite, porcentaje, transacciones };
+    };
 
     return (
         <View style={styles.container}>
@@ -336,25 +417,33 @@ export default function PresupuestosMensuales() {
 
                 {/* Categorías de presupuesto */}
                 <View style={styles.categories}>
+                    {/* Comida */}
                     <TouchableOpacity
                         style={styles.categoryItem}
-                        onPress={() => abrirDetalleCategoria('Supermercado')}
+                        onPress={() => abrirDetalleCategoria('Comida')}
                     >
                         <View style={[styles.categoryIcon, { backgroundColor: '#E3F2FD' }]}>
-                            <Ionicons name="cart" size={24} color="#2196F3" />
+                            <Ionicons name="fast-food" size={24} color="#2196F3" />
                         </View>
                         <View style={styles.categoryInfo}>
                             <View style={styles.categoryHeader}>
-                                <Text style={styles.categoryName}>Supermercado</Text>
-                                <Text style={styles.categoryAmount}>${(gastosPorCategoria['Supermercado'] || 0).toFixed(2)}</Text>
+                                <Text style={styles.categoryName}>Comida</Text>
+                                <Text style={styles.categoryAmount}>${obtenerDatosCategoria('Comida').gastado.toFixed(2)}</Text>
                             </View>
                             <View style={styles.categoryProgress}>
-                                <View style={[styles.progressBar, { backgroundColor: '#2196F3', width: '42.5%' }]} />
+                                <View style={[styles.progressBar, {
+                                    backgroundColor: obtenerDatosCategoria('Comida').porcentaje > 90 ? '#F44336' : '#2196F3',
+                                    width: `${obtenerDatosCategoria('Comida').porcentaje}%`
+                                }]} />
                             </View>
-                            <Text style={styles.transactionCount}>{transaccionesPorCategoria['Supermercado']?.length || 0} transacciones</Text>
+                            <Text style={styles.transactionCount}>
+                                {obtenerDatosCategoria('Comida').transacciones.length} transacciones
+                                {obtenerDatosCategoria('Comida').limite > 0 && ` • Límite: $${obtenerDatosCategoria('Comida').limite.toFixed(2)}`}
+                            </Text>
                         </View>
                     </TouchableOpacity>
 
+                    {/* Transporte */}
                     <TouchableOpacity
                         style={styles.categoryItem}
                         onPress={() => abrirDetalleCategoria('Transporte')}
@@ -365,15 +454,22 @@ export default function PresupuestosMensuales() {
                         <View style={styles.categoryInfo}>
                             <View style={styles.categoryHeader}>
                                 <Text style={styles.categoryName}>Transporte</Text>
-                                <Text style={styles.categoryAmount}>${(gastosPorCategoria['Transporte'] || 0).toFixed(2)}</Text>
+                                <Text style={styles.categoryAmount}>${obtenerDatosCategoria('Transporte').gastado.toFixed(2)}</Text>
                             </View>
                             <View style={styles.categoryProgress}>
-                                <View style={[styles.progressBar, { backgroundColor: '#FF9800', width: '30%' }]} />
+                                <View style={[styles.progressBar, {
+                                    backgroundColor: obtenerDatosCategoria('Transporte').porcentaje > 90 ? '#F44336' : '#FF9800',
+                                    width: `${obtenerDatosCategoria('Transporte').porcentaje}%`
+                                }]} />
                             </View>
-                            <Text style={styles.transactionCount}>{transaccionesPorCategoria['Transporte']?.length || 0} transacciones</Text>
+                            <Text style={styles.transactionCount}>
+                                {obtenerDatosCategoria('Transporte').transacciones.length} transacciones
+                                {obtenerDatosCategoria('Transporte').limite > 0 && ` • Límite: $${obtenerDatosCategoria('Transporte').limite.toFixed(2)}`}
+                            </Text>
                         </View>
                     </TouchableOpacity>
 
+                    {/* Servicios */}
                     <TouchableOpacity
                         style={styles.categoryItem}
                         onPress={() => abrirDetalleCategoria('Servicios')}
@@ -384,12 +480,44 @@ export default function PresupuestosMensuales() {
                         <View style={styles.categoryInfo}>
                             <View style={styles.categoryHeader}>
                                 <Text style={styles.categoryName}>Servicios</Text>
-                                <Text style={styles.categoryAmount}>${(gastosPorCategoria['Servicios'] || 0).toFixed(2)}</Text>
+                                <Text style={styles.categoryAmount}>${obtenerDatosCategoria('Servicios').gastado.toFixed(2)}</Text>
                             </View>
                             <View style={styles.categoryProgress}>
-                                <View style={[styles.progressBar, { backgroundColor: '#9C27B0', width: '22.5%' }]} />
+                                <View style={[styles.progressBar, {
+                                    backgroundColor: obtenerDatosCategoria('Servicios').porcentaje > 90 ? '#F44336' : '#9C27B0',
+                                    width: `${obtenerDatosCategoria('Servicios').porcentaje}%`
+                                }]} />
                             </View>
-                            <Text style={styles.transactionCount}>{transaccionesPorCategoria['Servicios']?.length || 0} transacciones</Text>
+                            <Text style={styles.transactionCount}>
+                                {obtenerDatosCategoria('Servicios').transacciones.length} transacciones
+                                {obtenerDatosCategoria('Servicios').limite > 0 && ` • Límite: $${obtenerDatosCategoria('Servicios').limite.toFixed(2)}`}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* Otros */}
+                    <TouchableOpacity
+                        style={styles.categoryItem}
+                        onPress={() => abrirDetalleCategoria('Otros')}
+                    >
+                        <View style={[styles.categoryIcon, { backgroundColor: '#E8F5E9' }]}>
+                            <Ionicons name="ellipsis-horizontal" size={24} color="#4CAF50" />
+                        </View>
+                        <View style={styles.categoryInfo}>
+                            <View style={styles.categoryHeader}>
+                                <Text style={styles.categoryName}>Otros</Text>
+                                <Text style={styles.categoryAmount}>${obtenerDatosCategoria('Otros').gastado.toFixed(2)}</Text>
+                            </View>
+                            <View style={styles.categoryProgress}>
+                                <View style={[styles.progressBar, {
+                                    backgroundColor: obtenerDatosCategoria('Otros').porcentaje > 90 ? '#F44336' : '#4CAF50',
+                                    width: `${obtenerDatosCategoria('Otros').porcentaje}%`
+                                }]} />
+                            </View>
+                            <Text style={styles.transactionCount}>
+                                {obtenerDatosCategoria('Otros').transacciones.length} transacciones
+                                {obtenerDatosCategoria('Otros').limite > 0 && ` • Límite: $${obtenerDatosCategoria('Otros').limite.toFixed(2)}`}
+                            </Text>
                         </View>
                     </TouchableOpacity>
                 </View>
@@ -416,29 +544,58 @@ export default function PresupuestosMensuales() {
                             {/* Sección de límite */}
                             <View style={styles.limiteSection}>
                                 <Text style={styles.limiteLabel}>Límite de gasto</Text>
-                                <TouchableOpacity
-                                    style={styles.establecerButton}
-                                    onPress={abrirModalEstablecerLimite}
-                                >
-                                    <Ionicons name="pencil" size={16} color="#4A8FE7" />
-                                    <Text style={styles.establecerText}>Establecer límite</Text>
-                                </TouchableOpacity>
+                                <View style={styles.limiteBotonesContainer}>
+                                    <TouchableOpacity
+                                        style={styles.establecerButton}
+                                        onPress={abrirModalEstablecerLimite}
+                                    >
+                                        <Ionicons name="pencil" size={16} color="#4A8FE7" />
+                                        <Text style={styles.establecerText}>
+                                            {obtenerDatosCategoria(categoriaSeleccionada).limite > 0 ? 'Editar límite' : 'Establecer límite'}
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    {obtenerDatosCategoria(categoriaSeleccionada).limite > 0 && (
+                                        <TouchableOpacity
+                                            style={styles.eliminarButton}
+                                            onPress={eliminarPresupuestoCategoria}
+                                        >
+                                            <Ionicons name="trash-outline" size={16} color="#F44336" />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
                             </View>
 
                             {/* Resumen financiero */}
                             <View style={styles.resumenSection}>
                                 <View style={styles.resumenRow}>
-                                    <Text style={styles.resumenLabel}>Gastado</Text>
-                                    <Text style={styles.resumenValue}>${(gastosPorCategoria[categoriaSeleccionada] || 0).toFixed(2)}</Text>
+                                    <Text style={styles.resumenLabel}>Límite establecido</Text>
+                                    <Text style={styles.resumenValue}>${obtenerDatosCategoria(categoriaSeleccionada).limite.toFixed(2)}</Text>
                                 </View>
                                 <View style={styles.resumenRow}>
-                                    <Text style={styles.resumenLabel}>Próximo</Text>
-                                    <Text style={styles.resumenValue}>$0.00</Text>
+                                    <Text style={styles.resumenLabel}>Gastado</Text>
+                                    <Text style={[styles.resumenValue, obtenerDatosCategoria(categoriaSeleccionada).porcentaje > 90 && { color: '#F44336' }]}>
+                                        ${obtenerDatosCategoria(categoriaSeleccionada).gastado.toFixed(2)}
+                                    </Text>
                                 </View>
                                 <View style={styles.divider} />
                                 <View style={styles.resumenRow}>
-                                    <Text style={styles.totalLabel}>Total</Text>
-                                    <Text style={styles.totalValue}>${(gastosPorCategoria[categoriaSeleccionada] || 0).toFixed(2)}</Text>
+                                    <Text style={styles.totalLabel}>Restante</Text>
+                                    <Text style={[
+                                        styles.totalValue,
+                                        (obtenerDatosCategoria(categoriaSeleccionada).limite - obtenerDatosCategoria(categoriaSeleccionada).gastado) < 0 && { color: '#F44336' }
+                                    ]}>
+                                        ${(obtenerDatosCategoria(categoriaSeleccionada).limite - obtenerDatosCategoria(categoriaSeleccionada).gastado).toFixed(2)}
+                                    </Text>
+                                </View>
+                                <View style={styles.resumenRow}>
+                                    <Text style={styles.resumenLabel}>Progreso</Text>
+                                    <Text style={[
+                                        styles.resumenValue,
+                                        obtenerDatosCategoria(categoriaSeleccionada).porcentaje > 90 && { color: '#F44336' }
+                                    ]}>
+                                        {obtenerDatosCategoria(categoriaSeleccionada).porcentaje.toFixed(0)}%
+                                    </Text>
                                 </View>
                             </View>
 
@@ -630,30 +787,38 @@ export default function PresupuestosMensuales() {
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalLimiteContainer}>
                             <Text style={styles.modalLimiteTitulo}>{categoriaSeleccionada}</Text>
+                            <Text style={styles.modalLimiteSubtitulo}>
+                                {MESES[mesIndex]} {anio}
+                            </Text>
 
-                            <Text style={styles.modalLimiteLabel}>Límite de gasto</Text>
+                            <Text style={styles.modalLimiteLabel}>Límite de gasto mensual</Text>
 
-                            <TextInput
-                                style={styles.modalLimiteInput}
-                                value={montoLimite}
-                                onChangeText={setMontoLimite}
-                                keyboardType="numeric"
-                                placeholder="$0"
-                                placeholderTextColor="#999"
-                            />
+                            <View style={styles.inputConPrefijo}>
+                                <Text style={styles.prefijoDolar}>$</Text>
+                                <TextInput
+                                    style={styles.modalLimiteInput}
+                                    value={montoLimite}
+                                    onChangeText={setMontoLimite}
+                                    keyboardType="numeric"
+                                    placeholder="0.00"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+
+                            {obtenerDatosCategoria(categoriaSeleccionada).gastado > 0 && (
+                                <View style={styles.infoGastado}>
+                                    <Ionicons name="information-circle" size={20} color="#666" />
+                                    <Text style={styles.infoGastadoTexto}>
+                                        Ya has gastado ${obtenerDatosCategoria(categoriaSeleccionada).gastado.toFixed(2)} en {categoriaSeleccionada} este mes
+                                    </Text>
+                                </View>
+                            )}
 
                             <TouchableOpacity
-                                style={styles.modalLimiteBoton}
+                                style={styles.modalLimiteBotonPrincipal}
                                 onPress={aplicarLimiteSoloPeriodo}
                             >
-                                <Text style={styles.modalLimiteBotonTexto}>Aplicar solo a este periodo</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.modalLimiteBoton}
-                                onPress={aplicarLimiteTodosPeriodos}
-                            >
-                                <Text style={styles.modalLimiteBotonTexto}>Aplicar a todos los periodos</Text>
+                                <Text style={styles.modalLimiteBotonPrincipalTexto}>Guardar límite</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -899,6 +1064,12 @@ const styles = StyleSheet.create({
     limiteLabel: {
         fontSize: 16,
         color: '#000',
+        flex: 1,
+    },
+    limiteBotonesContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     establecerButton: {
         flexDirection: 'row',
@@ -913,6 +1084,14 @@ const styles = StyleSheet.create({
         color: '#4A8FE7',
         fontSize: 14,
         fontWeight: '500',
+    },
+    eliminarButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#FFEBEE',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     // Resumen financiero (primera imagen)
     resumenSection: {
@@ -1100,27 +1279,72 @@ const styles = StyleSheet.create({
         maxWidth: 400,
     },
     modalLimiteTitulo: {
-        fontSize: 22,
+        fontSize: 24,
         fontWeight: 'bold',
         color: '#000',
+        textAlign: 'center',
+        marginBottom: 4,
+    },
+    modalLimiteSubtitulo: {
+        fontSize: 14,
+        color: '#666',
         textAlign: 'center',
         marginBottom: 24,
     },
     modalLimiteLabel: {
-        fontSize: 16,
-        color: '#000',
+        fontSize: 14,
+        color: '#666',
         textAlign: 'center',
-        marginBottom: 12,
+        marginBottom: 16,
+    },
+    inputConPrefijo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderBottomWidth: 2,
+        borderBottomColor: '#4A8FE7',
+        marginBottom: 24,
+    },
+    prefijoDolar: {
+        fontSize: 48,
+        fontWeight: 'bold',
+        color: '#4A8FE7',
+        marginRight: 8,
     },
     modalLimiteInput: {
         fontSize: 48,
         fontWeight: 'bold',
         color: '#000',
         textAlign: 'center',
-        borderBottomWidth: 2,
-        borderBottomColor: '#4A8FE7',
+        minWidth: 150,
         paddingVertical: 8,
-        marginBottom: 32,
+    },
+    infoGastado: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F5F5F5',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 24,
+        gap: 8,
+    },
+    infoGastadoTexto: {
+        flex: 1,
+        fontSize: 13,
+        color: '#666',
+        lineHeight: 18,
+    },
+    modalLimiteBotonPrincipal: {
+        backgroundColor: '#4A8FE7',
+        paddingVertical: 16,
+        borderRadius: 12,
+        marginBottom: 8,
+    },
+    modalLimiteBotonPrincipalTexto: {
+        color: '#fff',
+        fontSize: 16,
+        textAlign: 'center',
+        fontWeight: '600',
     },
     modalLimiteBoton: {
         paddingVertical: 14,
@@ -1134,10 +1358,9 @@ const styles = StyleSheet.create({
     },
     modalLimiteCancelar: {
         paddingVertical: 14,
-        marginTop: 8,
     },
     modalLimiteCancelarTexto: {
-        color: '#000',
+        color: '#666',
         fontSize: 16,
         textAlign: 'center',
         fontWeight: '600',

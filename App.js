@@ -1,10 +1,16 @@
 import 'react-native-gesture-handler';
 import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
-import { inicializarDB } from './database/database';
+import { LogBox, ActivityIndicator, View, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { inicializarDB, verificarOCrearSesionPrueba } from './database/database';
 
 import AppNavigation from './navigation/AppNavigation';
+
+LogBox.ignoreLogs([
+  'Warning: Async Storage has been extracted from react-native core',
+  'ViewPropTypes will be removed from React Native',
+]);
 
 export default function App() {
   const [dbInicializada, setDbInicializada] = useState(false);
@@ -13,6 +19,11 @@ export default function App() {
     const iniciar = async () => {
       const resultado = await inicializarDB();
       setDbInicializada(resultado);
+
+      if (resultado) {
+        console.log('🔍 Verificando sesión de prueba...');
+        await verificarOCrearSesionPrueba();
+      }
     };
     iniciar();
   }, []);
