@@ -5,160 +5,116 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
-  SafeAreaView,
-  Platform
+  Alert
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { validarCredenciales, guardarSesion } from '../database/database';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function LoginScreen() {
-  const navigation = useNavigation();
+export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
 
-  const validarEmail = (correo) => {
-    const regex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
-    return regex.test(correo.trim());
-  };
+  const emailRegex = /^(?:[0-9]{9}@upq\.edu\.mx|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$/;
 
-  const manejarLogin = async () => {
-    if (email.trim() === '' || password.trim() === '') {
-      if (Platform.OS === 'web') {
-        window.alert('ERROR: llena todos los campos antes de continuar');
-      } else {
-        Alert.alert('ERROR', 'Llena todos los campos antes de continuar');
-      }
+  const handleLogin = async () => {
+    if (!emailRegex.test(email.trim().toLowerCase())) {
+      Alert.alert("Correo inválido", "Ingresa un correo válido o institucional @upq.edu.mx");
       return;
     }
 
-    if (!validarEmail(email)) {
-      if (Platform.OS === 'web') {
-        window.alert(
-          'ERROR: el correo está mal escrito.\nDebe contener "@" y un dominio válido'
-        );
-      } else {
-        Alert.alert(
-          'ERROR',
-          'El correo está mal escrito.\nDebe contener "@" y un dominio válido'
-        );
-      }
+    if (!password.trim()) {
+      Alert.alert("Error", "Ingresa tu contraseña");
       return;
     }
 
     const usuario = await validarCredenciales(email, password);
-
-    if (usuario) {
-      console.log('💾 Guardando sesión para:', usuario.email);
-      const sesionGuardada = await guardarSesion(usuario.email);
-      console.log('✅ Sesión guardada:', sesionGuardada);
-
-      if (Platform.OS === 'web') {
-        window.alert('BIENVENIDO ' + usuario.email);
-      } else {
-        Alert.alert('BIENVENIDO', usuario.email);
-      }
-
-      setTimeout(() => {
-        navigation.replace('HomeTabs'); 
-      }, 500);
-    } else {
-      if (Platform.OS === 'web') {
-        window.alert('ERROR: Correo o contraseña incorrectos');
-      } else {
-        Alert.alert('ERROR', 'Correo o contraseña incorrectos');
-      }
+    if (!usuario) {
+      Alert.alert("Error", "Correo o contraseña incorrectos");
+      return;
     }
+
+    await guardarSesion(email);
+
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "HomeTabs" }],
+    });
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.title}>Iniciar Sesión</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="Correo electrónico"
-        placeholderTextColor="#999"
+        placeholder="Correo"
         keyboardType="email-address"
         autoCapitalize="none"
         value={email}
         onChangeText={setEmail}
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Contraseña"
-        placeholderTextColor="#999"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Contraseña"
+          secureTextEntry={!showPass}
+          value={password}
+          onChangeText={setPassword}
+        />
+        <TouchableOpacity onPress={() => setShowPass(!showPass)}>
+          <Ionicons
+            name={showPass ? 'eye-off' : 'eye'}
+            size={24}
+            color="#333"
+          />
+        </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity style={styles.button} onPress={manejarLogin}>
-        <Text style={styles.buttonText}>Iniciar Sesión</Text>
+      <TouchableOpacity style={styles.btn} onPress={handleLogin}>
+        <Text style={styles.btnText}>Ingresar</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-        <Text style={styles.linkText}>
-          ¿No tienes una cuenta? Crear cuenta
-        </Text>
+      <TouchableOpacity onPress={() => navigation.navigate("RecuperarContrasena")}>
+        <Text style={styles.link}>¿Olvidaste tu contraseña?</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={() => navigation.navigate('RecuperarContrasena')}
-      >
-        <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+      <TouchableOpacity onPress={() => navigation.navigate("Register")}>
+        <Text style={styles.link}>Crear una cuenta nueva</Text>
       </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#E3F2FD',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#030213',
-    marginBottom: 40,
-  },
+  container: { flex: 1, justifyContent: 'center', padding: 25, backgroundColor: '#E3F2FD' },
+  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 25, textAlign: 'center' },
   input: {
-    width: '90%',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#ccc',
-    fontSize: 16,
   },
-  button: {
-    width: '90%',
-    backgroundColor: '#4A8FE7',
-    borderRadius: 12,
-    padding: 16,
+  passwordContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    paddingHorizontal: 10,
     alignItems: 'center',
-    marginTop: 8,
+    marginBottom: 12
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+  passwordInput: { flex: 1, padding: 12 },
+  btn: {
+    backgroundColor: '#2196F3',
+    padding: 14,
+    borderRadius: 10,
+    marginTop: 10
   },
-  linkText: {
-    marginTop: 20,
-    color: '#4A8FE7',
-    fontWeight: '500',
-  },
-  forgotText: {
-    marginTop: 15,
-    color: '#4A8FE7',
-    fontWeight: '500',
-  },
+  btnText: { textAlign: 'center', fontSize: 18, color: '#fff', fontWeight: 'bold' },
+  link: { textAlign: 'center', marginTop: 15, color: '#0d47a1', fontSize: 16 }
 });
-

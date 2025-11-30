@@ -1,143 +1,176 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Switch, Platform, StatusBar } from 'react-native';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
-import * as NavigationBar from 'expo-navigation-bar';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Switch,
+  Alert,
+  StyleSheet
+} from 'react-native';
 import { registrarUsuario } from '../database/database';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function RegisterScreen() {
-  const navigation = useNavigation();
-  const isFocused = useIsFocused();
+export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmar, setConfirmar] = useState('');
-  const [aceptarCondiciones, setAceptarCondiciones] = useState(false);
-  const [mostrarPassword, setMostrarPassword] = useState(false);
+  const [password2, setPassword2] = useState('');
+  const [showPass1, setShowPass1] = useState(false);
+  const [showPass2, setShowPass2] = useState(false);
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
 
-  useEffect(() => {
-    const hideBars = async () => {
-      if (Platform.OS === 'android') {
-        await StatusBar.setTranslucent(true);
-        await NavigationBar.setVisibilityAsync('hidden');
-        await NavigationBar.setBehaviorAsync('overlay');
-        StatusBar.setHidden(true);
-      } else StatusBar.setHidden(true, 'fade');
-    };
-    const showBars = async () => {
-      if (Platform.OS === 'android') {
-        await StatusBar.setTranslucent(false);
-        await NavigationBar.setVisibilityAsync('visible');
-        StatusBar.setHidden(false);
-      } else StatusBar.setHidden(false, 'fade');
-    };
-    if (isFocused) hideBars();
-    return () => showBars();
-  }, [isFocused]);
+  // Acepta correo normal o institucional de la UPQ
+  const emailRegex =
+    /^(?:[0-9]{9}@upq\.edu\.mx|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$/;
 
-  const validarEmail = (correo) => {
-    const dominiosValidos = ['gmail.com', 'yahoo.com', 'hotmail.com', 'icloud.com', 'outlook.com', 'yamail.com'];
-    if (!correo.includes('@')) return false;
-    const [_, dominio] = correo.split('@');
-    return dominiosValidos.includes(dominio.toLowerCase());
-  };
+  const handleRegister = async () => {
+    if (!emailRegex.test(email.trim().toLowerCase())) {
+      Alert.alert(
+        "Correo inválido",
+        "Ingresa un correo válido o un correo institucional @upq.edu.mx"
+      );
+      return;
+    }
 
-  const mostrarAlerta = (t, m) => Platform.OS === 'web' ? window.alert(`${t}: ${m}`) : Alert.alert(t, m);
+    if (!password.trim() || !password2.trim()) {
+      Alert.alert("Error", "Llena todos los campos");
+      return;
+    }
 
-  const manejarRegistro = async () => {
-    if (!email.trim() || !password.trim() || !confirmar.trim()) return mostrarAlerta('ERROR', 'Por favor llena todos los campos');
-    if (!validarEmail(email)) return mostrarAlerta('ERROR', 'Correo no válido');
-    if (password !== confirmar) return mostrarAlerta('ERROR', 'Las contraseñas no coinciden');
-    if (!aceptarCondiciones) return mostrarAlerta('ERROR', 'Debes aceptar los términos');
+    if (password !== password2) {
+      Alert.alert("Error", "Las contraseñas no coinciden");
+      return;
+    }
 
-    const resultado = await registrarUsuario(email, password);
-    if (resultado.success) {
-      mostrarAlerta('Bienvenido', 'Tu cuenta ha sido creada');
-      navigation.navigate('Login');
-    } else mostrarAlerta('ERROR', resultado.error || 'Error');
+    if (!aceptaTerminos) {
+      Alert.alert(
+        "Términos no aceptados",
+        "Debes aceptar los términos y condiciones para continuar"
+      );
+      return;
+    }
+
+    const result = await registrarUsuario(email, password);
+
+    if (!result.success) {
+      Alert.alert("Error", result.error);
+      return;
+    }
+
+    Alert.alert("Cuenta creada", "Ahora puedes iniciar sesión");
+    navigation.navigate("Login");
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.title}>Crear Cuenta</Text>
 
-      <TextInput style={styles.input} placeholder="Correo electrónico" placeholderTextColor="#999" keyboardType="email-address" value={email} onChangeText={setEmail} />
+      {/* CORREO */}
+      <TextInput
+        style={styles.input}
+        placeholder="Correo electrónico"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+      />
 
-      <TextInput style={styles.input} placeholder="Contraseña" placeholderTextColor="#999" secureTextEntry={!mostrarPassword} value={password} onChangeText={setPassword} />
-
-      <TextInput style={styles.input} placeholder="Confirmar contraseña" placeholderTextColor="#999" secureTextEntry={!mostrarPassword} value={confirmar} onChangeText={setConfirmar} />
-
-      <View style={styles.switchContainer}>
-        <Switch value={mostrarPassword} onValueChange={setMostrarPassword} />
-        <Text style={styles.switchText}>Mostrar contraseñas</Text>
+      {/* CONTRASEÑA */}
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Contraseña"
+          secureTextEntry={!showPass1}
+          value={password}
+          onChangeText={setPassword}
+        />
+        <TouchableOpacity onPress={() => setShowPass1(!showPass1)}>
+          <Ionicons
+            name={showPass1 ? "eye-off" : "eye"}
+            size={24}
+            color="#333"
+          />
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.switchContainer}>
-        <Switch value={aceptarCondiciones} onValueChange={setAceptarCondiciones} />
-        <Text style={styles.switchText}>Aceptar términos y condiciones</Text>
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Repetir contraseña"
+          secureTextEntry={!showPass2}
+          value={password2}
+          onChangeText={setPassword2}
+        />
+        <TouchableOpacity onPress={() => setShowPass2(!showPass2)}>
+          <Ionicons
+            name={showPass2 ? "eye-off" : "eye"}
+            size={24}
+            color="#333"
+          />
+        </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={manejarRegistro}>
-        <Text style={styles.buttonText}>Registrar</Text>
+      <View style={styles.terminosContainer}>
+        <Switch
+          value={aceptaTerminos}
+          onValueChange={setAceptaTerminos}
+          thumbColor={aceptaTerminos ? "#4A8FE7" : "#ccc"}
+          trackColor={{ false: "#ddd", true: "#A7C7F2" }}
+        />
+        <Text style={styles.terminosText}>
+          Aceptar términos y condiciones
+        </Text>
+      </View>
+
+      {/* BOTÓN REGISTRAR */}
+      <TouchableOpacity style={styles.btn} onPress={handleRegister}>
+        <Text style={styles.btnText}>Crear Cuenta</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-        <Text style={styles.linkText}>¿Ya tienes cuenta? Inicia sesión</Text>
+      {/* VOLVER A LOGIN */}
+      <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+        <Text style={styles.link}>Ya tengo una cuenta</Text>
       </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#E3F2FD',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#030213',
-    marginBottom: 40,
-  },
+  container: { flex: 1, justifyContent: "center", padding: 25, backgroundColor: "#E3F2FD" },
+  title: { fontSize: 28, fontWeight: "bold", marginBottom: 25, textAlign: "center" },
   input: {
-    width: '90%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#ccc',
-    fontSize: 16,
+    borderColor: "#ccc"
   },
-  button: {
-    width: '90%',
-    backgroundColor: '#4A8FE7',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
+  passwordContainer: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    paddingHorizontal: 10,
+    alignItems: "center",
+    marginBottom: 12
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  linkText: {
-    marginTop: 20,
-    color: '#4A8FE7',
-    fontWeight: '500',
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  passwordInput: { flex: 1, padding: 12 },
+
+  terminosContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 20,
-    width: '90%',
   },
-  switchText: {
+
+  terminosText: {
     marginLeft: 10,
     fontSize: 16,
-    color: '#030213',
+    color: "#030213",
   },
+
+  btn: { backgroundColor: "#2196F3", padding: 14, borderRadius: 10, marginTop: 10 },
+  btnText: { textAlign: "center", fontSize: 18, color: "#fff", fontWeight: "bold" },
+  link: { textAlign: "center", marginTop: 15, color: "#0d47a1", fontSize: 16 }
 });
 
