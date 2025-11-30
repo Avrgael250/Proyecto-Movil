@@ -194,8 +194,20 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
             return;
         }
 
+        // Determinar el tipo correcto según la selección
+        let tipoFinal = tipoTransaccion;
+
+        // Mapear tipos de transacción
+        if (tipoTransaccion === 'Gasto' || tipoTransaccion === 'Pago') {
+            tipoFinal = 'Gasto'; // Ambos son egresos
+        } else if (tipoTransaccion === 'Ingreso' || tipoTransaccion === 'Reembolso') {
+            tipoFinal = 'Ingreso'; // Ambos son ingresos
+        } else if (tipoTransaccion === 'Transferencia') {
+            tipoFinal = 'Transferencia';
+        }
+
         const nuevaTransaccion = {
-            tipo: tipoTransaccion,
+            tipo: tipoFinal,
             monto: parseFloat(monto),
             descripcion: descripcion,
             fecha_transaccion: fechaTransaccion.toISOString().split('T')[0],
@@ -206,20 +218,51 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
         };
 
         try {
+            console.log('🚀 Iniciando guardado de transacción...', nuevaTransaccion);
+
             // Guardar transacción Y actualizar saldo de cuenta automáticamente
-            await guardarTransaccion(nuevaTransaccion, usuarioEmail);
+            const resultado = await guardarTransaccion(nuevaTransaccion, usuarioEmail);
 
-            Alert.alert('Éxito', '✅ Transacción guardada y saldo actualizado');
-            setModalAgregar(false);
-            resetearFormulario();
+            if (resultado.success) {
+                console.log('✅ Transacción guardada exitosamente');
 
-            // Notificar al componente padre que se guardó una transacción
-            if (onTransaccionGuardada) {
-                onTransaccionGuardada();
+                // Mensaje personalizado según tipo
+                let mensaje = '';
+                switch (tipoTransaccion) {
+                    case 'Gasto':
+                        mensaje = `💸 Gasto de $${monto} registrado y descontado de ${cuenta}`;
+                        break;
+                    case 'Pago':
+                        mensaje = `💳 Pago de $${monto} registrado y descontado de ${cuenta}`;
+                        break;
+                    case 'Ingreso':
+                        mensaje = `💰 Ingreso de $${monto} registrado y sumado a ${cuenta}`;
+                        break;
+                    case 'Transferencia':
+                        mensaje = `🔄 Transferencia de $${monto} registrada`;
+                        break;
+                    case 'Reembolso':
+                        mensaje = `↩️ Reembolso de $${monto} registrado y sumado a ${cuenta}`;
+                        break;
+                    default:
+                        mensaje = '✅ Transacción guardada correctamente';
+                }
+
+                Alert.alert('Éxito', mensaje);
+                setModalAgregar(false);
+                resetearFormulario();
+
+                // Notificar al componente padre que se guardó una transacción
+                if (onTransaccionGuardada) {
+                    onTransaccionGuardada();
+                }
+            } else {
+                console.error('❌ Error al guardar:', resultado.error);
+                Alert.alert('Error', resultado.error || 'No se pudo guardar la transacción');
             }
         } catch (error) {
-            console.error('❌ Error al guardar transacción:', error);
-            Alert.alert('Error', 'No se pudo guardar la transacción');
+            console.error('❌ Error en guardarNuevaTransaccion:', error);
+            Alert.alert('Error', 'No se pudo guardar la transacción: ' + error.message);
         }
     };
 
@@ -417,6 +460,50 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                     </View>
 
                     <ScrollView style={styles.modalAgregarContenido}>
+                        {/* Info banner según tipo */}
+                        <View style={styles.infoBanner}>
+                            {tipoTransaccion === 'Gasto' && (
+                                <>
+                                    <Ionicons name="trending-down" size={20} color="#EF4444" />
+                                    <Text style={styles.infoBannerTexto}>
+                                        Este monto se descontará del saldo de tu cuenta
+                                    </Text>
+                                </>
+                            )}
+                            {tipoTransaccion === 'Pago' && (
+                                <>
+                                    <Ionicons name="card-outline" size={20} color="#EF4444" />
+                                    <Text style={styles.infoBannerTexto}>
+                                        Este pago se descontará del saldo de tu cuenta
+                                    </Text>
+                                </>
+                            )}
+                            {tipoTransaccion === 'Ingreso' && (
+                                <>
+                                    <Ionicons name="trending-up" size={20} color="#10B981" />
+                                    <Text style={styles.infoBannerTexto}>
+                                        Este monto se sumará al saldo de tu cuenta
+                                    </Text>
+                                </>
+                            )}
+                            {tipoTransaccion === 'Transferencia' && (
+                                <>
+                                    <Ionicons name="swap-horizontal" size={20} color="#3B82F6" />
+                                    <Text style={styles.infoBannerTexto}>
+                                        Mueve dinero entre tus cuentas
+                                    </Text>
+                                </>
+                            )}
+                            {tipoTransaccion === 'Reembolso' && (
+                                <>
+                                    <Ionicons name="arrow-undo" size={20} color="#10B981" />
+                                    <Text style={styles.infoBannerTexto}>
+                                        Este reembolso se sumará al saldo de tu cuenta
+                                    </Text>
+                                </>
+                            )}
+                        </View>
+
                         {/* Monto */}
                         <View style={styles.montoSection}>
                             <Text style={styles.montoLabel}>Monto</Text>
@@ -772,6 +859,26 @@ const styles = StyleSheet.create({
     },
     modalAgregarContenido: {
         flex: 1,
+    },
+    infoBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0F9FF',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        marginHorizontal: 16,
+        marginTop: 16,
+        marginBottom: 8,
+        borderRadius: 8,
+        borderLeftWidth: 4,
+        borderLeftColor: '#3B82F6',
+        gap: 12,
+    },
+    infoBannerTexto: {
+        flex: 1,
+        fontSize: 13,
+        color: '#1E40AF',
+        lineHeight: 18,
     },
     montoSection: {
         backgroundColor: '#fff',

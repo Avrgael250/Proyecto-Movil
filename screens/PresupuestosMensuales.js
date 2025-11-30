@@ -191,30 +191,40 @@ export default function PresupuestosMensuales() {
             return;
         }
 
-        const mes = (mesIndex + 1).toString();
-        const presupuestoCat = presupuestos.find(p => p.categoria === categoriaSeleccionada);
+        try {
+            const mes = (mesIndex + 1).toString();
+            const presupuestoCat = presupuestos.find(p => p.categoria === categoriaSeleccionada);
 
-        if (presupuestoCat) {
-            const presupuestoActualizado = {
-                categoria: categoriaSeleccionada,
-                monto_limite: parseFloat(montoLimite),
-                mes: mes,
-                año: anio.toString()
-            };
-            await actualizarPresupuesto(presupuestoCat.id, presupuestoActualizado);
-        } else {
-            const nuevoPresupuesto = {
-                categoria: categoriaSeleccionada,
-                monto_limite: parseFloat(montoLimite),
-                mes: mes,
-                año: anio.toString()
-            };
-            await guardarPresupuesto(nuevoPresupuesto, usuarioEmail);
+            if (presupuestoCat) {
+                // Actualizar presupuesto existente
+                const presupuestoActualizado = {
+                    categoria: categoriaSeleccionada,
+                    monto_limite: parseFloat(montoLimite),
+                    mes: mes,
+                    año: anio.toString()
+                };
+                await actualizarPresupuesto(presupuestoCat.id, presupuestoActualizado);
+                console.log('✅ Presupuesto actualizado:', categoriaSeleccionada, montoLimite);
+            } else {
+                // Crear nuevo presupuesto
+                const nuevoPresupuesto = {
+                    categoria: categoriaSeleccionada,
+                    monto_limite: parseFloat(montoLimite),
+                    mes: mes,
+                    año: anio.toString()
+                };
+                await guardarPresupuesto(nuevoPresupuesto, usuarioEmail);
+                console.log('✅ Presupuesto creado:', categoriaSeleccionada, montoLimite);
+            }
+
+            setModalEstablecerLimite(false);
+            setModalDetalle(false);
+            Alert.alert('Éxito', `Límite de $${montoLimite} establecido para ${categoriaSeleccionada}`);
+            await cargarDatos();
+        } catch (error) {
+            console.error('❌ Error al guardar presupuesto:', error);
+            Alert.alert('Error', 'No se pudo guardar el presupuesto');
         }
-
-        setModalEstablecerLimite(false);
-        Alert.alert('Éxito', 'Límite establecido para este período');
-        cargarDatos();
     };
 
     const aplicarLimiteTodosPeriodos = async () => {
@@ -224,8 +234,40 @@ export default function PresupuestosMensuales() {
         }
 
         setModalEstablecerLimite(false);
+        setModalDetalle(false);
         Alert.alert('Éxito', 'Límite establecido para todos los períodos');
         cargarDatos();
+    };
+
+    const eliminarPresupuestoCategoria = async () => {
+        if (!categoriaSeleccionada) return;
+
+        Alert.alert(
+            'Confirmar',
+            `¿Deseas eliminar el presupuesto de ${categoriaSeleccionada}?`,
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Eliminar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const presupuestoCat = presupuestos.find(p => p.categoria === categoriaSeleccionada);
+                            if (presupuestoCat) {
+                                await eliminarPresupuesto(presupuestoCat.id);
+                                console.log('🗑️ Presupuesto eliminado:', categoriaSeleccionada);
+                                setModalDetalle(false);
+                                Alert.alert('Éxito', 'Presupuesto eliminado');
+                                await cargarDatos();
+                            }
+                        } catch (error) {
+                            console.error('❌ Error al eliminar presupuesto:', error);
+                            Alert.alert('Error', 'No se pudo eliminar el presupuesto');
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const abrirEdicionTransaccion = (transaccion) => {
@@ -502,13 +544,26 @@ export default function PresupuestosMensuales() {
                             {/* Sección de límite */}
                             <View style={styles.limiteSection}>
                                 <Text style={styles.limiteLabel}>Límite de gasto</Text>
-                                <TouchableOpacity
-                                    style={styles.establecerButton}
-                                    onPress={abrirModalEstablecerLimite}
-                                >
-                                    <Ionicons name="pencil" size={16} color="#4A8FE7" />
-                                    <Text style={styles.establecerText}>Establecer límite</Text>
-                                </TouchableOpacity>
+                                <View style={styles.limiteBotonesContainer}>
+                                    <TouchableOpacity
+                                        style={styles.establecerButton}
+                                        onPress={abrirModalEstablecerLimite}
+                                    >
+                                        <Ionicons name="pencil" size={16} color="#4A8FE7" />
+                                        <Text style={styles.establecerText}>
+                                            {obtenerDatosCategoria(categoriaSeleccionada).limite > 0 ? 'Editar límite' : 'Establecer límite'}
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    {obtenerDatosCategoria(categoriaSeleccionada).limite > 0 && (
+                                        <TouchableOpacity
+                                            style={styles.eliminarButton}
+                                            onPress={eliminarPresupuestoCategoria}
+                                        >
+                                            <Ionicons name="trash-outline" size={16} color="#F44336" />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
                             </View>
 
                             {/* Resumen financiero */}
@@ -732,30 +787,38 @@ export default function PresupuestosMensuales() {
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalLimiteContainer}>
                             <Text style={styles.modalLimiteTitulo}>{categoriaSeleccionada}</Text>
+                            <Text style={styles.modalLimiteSubtitulo}>
+                                {MESES[mesIndex]} {anio}
+                            </Text>
 
-                            <Text style={styles.modalLimiteLabel}>Límite de gasto</Text>
+                            <Text style={styles.modalLimiteLabel}>Límite de gasto mensual</Text>
 
-                            <TextInput
-                                style={styles.modalLimiteInput}
-                                value={montoLimite}
-                                onChangeText={setMontoLimite}
-                                keyboardType="numeric"
-                                placeholder="$0"
-                                placeholderTextColor="#999"
-                            />
+                            <View style={styles.inputConPrefijo}>
+                                <Text style={styles.prefijoDolar}>$</Text>
+                                <TextInput
+                                    style={styles.modalLimiteInput}
+                                    value={montoLimite}
+                                    onChangeText={setMontoLimite}
+                                    keyboardType="numeric"
+                                    placeholder="0.00"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+
+                            {obtenerDatosCategoria(categoriaSeleccionada).gastado > 0 && (
+                                <View style={styles.infoGastado}>
+                                    <Ionicons name="information-circle" size={20} color="#666" />
+                                    <Text style={styles.infoGastadoTexto}>
+                                        Ya has gastado ${obtenerDatosCategoria(categoriaSeleccionada).gastado.toFixed(2)} en {categoriaSeleccionada} este mes
+                                    </Text>
+                                </View>
+                            )}
 
                             <TouchableOpacity
-                                style={styles.modalLimiteBoton}
+                                style={styles.modalLimiteBotonPrincipal}
                                 onPress={aplicarLimiteSoloPeriodo}
                             >
-                                <Text style={styles.modalLimiteBotonTexto}>Aplicar solo a este periodo</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.modalLimiteBoton}
-                                onPress={aplicarLimiteTodosPeriodos}
-                            >
-                                <Text style={styles.modalLimiteBotonTexto}>Aplicar a todos los periodos</Text>
+                                <Text style={styles.modalLimiteBotonPrincipalTexto}>Guardar límite</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -1001,6 +1064,12 @@ const styles = StyleSheet.create({
     limiteLabel: {
         fontSize: 16,
         color: '#000',
+        flex: 1,
+    },
+    limiteBotonesContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     establecerButton: {
         flexDirection: 'row',
@@ -1015,6 +1084,14 @@ const styles = StyleSheet.create({
         color: '#4A8FE7',
         fontSize: 14,
         fontWeight: '500',
+    },
+    eliminarButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#FFEBEE',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     // Resumen financiero (primera imagen)
     resumenSection: {
@@ -1202,27 +1279,72 @@ const styles = StyleSheet.create({
         maxWidth: 400,
     },
     modalLimiteTitulo: {
-        fontSize: 22,
+        fontSize: 24,
         fontWeight: 'bold',
         color: '#000',
+        textAlign: 'center',
+        marginBottom: 4,
+    },
+    modalLimiteSubtitulo: {
+        fontSize: 14,
+        color: '#666',
         textAlign: 'center',
         marginBottom: 24,
     },
     modalLimiteLabel: {
-        fontSize: 16,
-        color: '#000',
+        fontSize: 14,
+        color: '#666',
         textAlign: 'center',
-        marginBottom: 12,
+        marginBottom: 16,
+    },
+    inputConPrefijo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderBottomWidth: 2,
+        borderBottomColor: '#4A8FE7',
+        marginBottom: 24,
+    },
+    prefijoDolar: {
+        fontSize: 48,
+        fontWeight: 'bold',
+        color: '#4A8FE7',
+        marginRight: 8,
     },
     modalLimiteInput: {
         fontSize: 48,
         fontWeight: 'bold',
         color: '#000',
         textAlign: 'center',
-        borderBottomWidth: 2,
-        borderBottomColor: '#4A8FE7',
+        minWidth: 150,
         paddingVertical: 8,
-        marginBottom: 32,
+    },
+    infoGastado: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F5F5F5',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 24,
+        gap: 8,
+    },
+    infoGastadoTexto: {
+        flex: 1,
+        fontSize: 13,
+        color: '#666',
+        lineHeight: 18,
+    },
+    modalLimiteBotonPrincipal: {
+        backgroundColor: '#4A8FE7',
+        paddingVertical: 16,
+        borderRadius: 12,
+        marginBottom: 8,
+    },
+    modalLimiteBotonPrincipalTexto: {
+        color: '#fff',
+        fontSize: 16,
+        textAlign: 'center',
+        fontWeight: '600',
     },
     modalLimiteBoton: {
         paddingVertical: 14,
@@ -1236,10 +1358,9 @@ const styles = StyleSheet.create({
     },
     modalLimiteCancelar: {
         paddingVertical: 14,
-        marginTop: 8,
     },
     modalLimiteCancelarTexto: {
-        color: '#000',
+        color: '#666',
         fontSize: 16,
         textAlign: 'center',
         fontWeight: '600',

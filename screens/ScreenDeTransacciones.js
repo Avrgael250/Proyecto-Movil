@@ -12,21 +12,26 @@ import {
   Alert,
   Modal,
   Dimensions,
+  Platform,
 } from 'react-native';
+import * as NavigationBar from 'expo-navigation-bar';
+import { useIsFocused } from '@react-navigation/native';
 import { categorias } from './DatosEjemplo';
 import ElementoTransaccion from './ElementoDeTransaccionScreen';
-import { 
-  inicializarDB, 
-  obtenerTransacciones, 
-  guardarTransaccion as guardarTransaccionDB, 
-  actualizarTransaccion, 
+import {
+  inicializarDB,
+  obtenerTransacciones,
+  guardarTransaccion as guardarTransaccionDB,
+  actualizarTransaccion,
   eliminarTransaccion as eliminarTransaccionDB,
-  obtenerSesion 
+  obtenerSesion
 } from '../database/database';
 
 const { width, height } = Dimensions.get('window');
 
 const ScreenDeTransacciones = () => {
+  const isFocused = useIsFocused();
+
   // Estados principales
   const [transacciones, setTransacciones] = useState([]);
   const [transaccionesFiltradas, setTransaccionesFiltradas] = useState([]);
@@ -60,10 +65,86 @@ const ScreenDeTransacciones = () => {
     fecha: new Date().toISOString().split('T')[0],
   });
 
+  // Ocultar barras del sistema cuando la pantalla está enfocada
+  useEffect(() => {
+    const configureSystemUI = async () => {
+      if (Platform.OS === 'android') {
+        try {
+          // Configurar StatusBar
+          StatusBar.setHidden(true, 'none');
+          StatusBar.setTranslucent(true);
+          StatusBar.setBackgroundColor('transparent');
+
+          // Configurar Navigation Bar
+          await NavigationBar.setVisibilityAsync('hidden');
+          await NavigationBar.setBehaviorAsync('inset-swipe');
+          await NavigationBar.setPositionAsync('absolute');
+
+          console.log('✅ Barras del sistema ocultadas');
+        } catch (error) {
+          console.error('Error al ocultar barras:', error);
+        }
+      } else if (Platform.OS === 'ios') {
+        StatusBar.setHidden(true, 'fade');
+      }
+    };
+
+    const restoreSystemUI = async () => {
+      if (Platform.OS === 'android') {
+        try {
+          StatusBar.setHidden(false, 'none');
+          StatusBar.setTranslucent(false);
+          await NavigationBar.setVisibilityAsync('visible');
+          await NavigationBar.setPositionAsync('relative');
+
+          console.log('✅ Barras del sistema restauradas');
+        } catch (error) {
+          console.error('Error al restaurar barras:', error);
+        }
+      } else if (Platform.OS === 'ios') {
+        StatusBar.setHidden(false, 'fade');
+      }
+    };
+
+    if (isFocused) {
+      configureSystemUI();
+
+      // Re-aplicar cada 100ms durante el primer segundo para asegurar
+      const intervals = [];
+      for (let i = 1; i <= 10; i++) {
+        intervals.push(setTimeout(configureSystemUI, i * 100));
+      }
+
+      return () => {
+        intervals.forEach(clearTimeout);
+        restoreSystemUI();
+      };
+    }
+  }, [isFocused]);
+
   // Inicializar base de datos y cargar transacciones
   useEffect(() => {
     inicializarBaseDeDatos();
   }, []);
+
+  // Listener para mantener las barras ocultas
+  useEffect(() => {
+    if (!isFocused || Platform.OS !== 'android') return;
+
+    const keepBarsHidden = async () => {
+      try {
+        StatusBar.setHidden(true, 'none');
+        await NavigationBar.setVisibilityAsync('hidden');
+      } catch (error) {
+        // Ignorar errores silenciosamente
+      }
+    };
+
+    // Re-ocultar cada 500ms mientras la pantalla esté activa
+    const interval = setInterval(keepBarsHidden, 500);
+
+    return () => clearInterval(interval);
+  }, [isFocused]);
 
   const inicializarBaseDeDatos = async () => {
     try {
@@ -93,9 +174,9 @@ const ScreenDeTransacciones = () => {
   const cargarTransacciones = async () => {
     try {
       if (!usuarioEmail) return;
-      
+
       const transaccionesDB = await obtenerTransacciones(usuarioEmail);
-      
+
       const transaccionesFormateadas = transaccionesDB.map(transaccion => ({
         id: transaccion.id.toString(),
         tipo: transaccion.tipo.toLowerCase(),
@@ -202,7 +283,7 @@ const ScreenDeTransacciones = () => {
         };
 
         const resultado = await actualizarTransaccion(transaccionEditando.id, transaccionActualizada);
-        
+
         if (resultado.success) {
           await cargarTransacciones();
           Alert.alert('Éxito', 'Transacción actualizada correctamente');
@@ -220,7 +301,7 @@ const ScreenDeTransacciones = () => {
         };
 
         const resultado = await guardarTransaccionDB(nuevaTransaccion, usuarioEmail);
-        
+
         if (resultado.success) {
           await cargarTransacciones();
           Alert.alert('Éxito', 'Transacción guardada correctamente');
@@ -335,10 +416,8 @@ const ScreenDeTransacciones = () => {
   );
 
   return (
-    <SafeAreaView style={estilos.contenedorSafeArea}>
+    <View style={estilos.contenedorSafeArea}>
       <View style={estilos.contenedor}>
-        <StatusBar barStyle="dark-content" />
-
         <Encabezado />
         <Controles />
 
@@ -703,7 +782,7 @@ const ScreenDeTransacciones = () => {
           </View>
         </Modal>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -712,10 +791,14 @@ const estilos = StyleSheet.create({
   contenedorSafeArea: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+    paddingTop: 0,
+    marginTop: 0,
   },
   contenedor: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+    paddingTop: 0,
+    marginTop: 0,
   },
   encabezado: {
     backgroundColor: '#FFFFFF',

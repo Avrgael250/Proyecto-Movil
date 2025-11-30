@@ -1,19 +1,28 @@
 import * as SQLite from 'expo-sqlite';
 
-let db;
+let db = null;
+let dbPromise = null;
 
 // Función auxiliar para asegurar que la DB está inicializada
 const getDB = async () => {
-    if (!db) {
-        db = await SQLite.openDatabaseAsync('ahorraplus.db');
+    if (db) {
+        return db;
     }
+
+    if (dbPromise) {
+        return await dbPromise;
+    }
+
+    dbPromise = SQLite.openDatabaseAsync('ahorraplus.db');
+    db = await dbPromise;
+    dbPromise = null;
     return db;
 };
 
 // ============ INICIALIZACIÓN DE LA BASE DE DATOS ============
 export const inicializarDB = async () => {
     try {
-        db = await SQLite.openDatabaseAsync('ahorraplus.db');
+        db = await getDB();
 
         // Crear tabla de usuarios
         await db.execAsync(`
@@ -64,6 +73,28 @@ export const inicializarDB = async () => {
             // Si ya existe, ignorar el error
             if (!error.message.includes('duplicate column')) {
                 console.log('ℹ️ Columna fecha_pago ya existe');
+            }
+        }
+
+        try {
+            // Intentar agregar cuenta si no existe
+            await db.execAsync(`ALTER TABLE transacciones ADD COLUMN cuenta TEXT`);
+            console.log('✅ Columna cuenta agregada');
+        } catch (error) {
+            // Si ya existe, ignorar el error
+            if (!error.message.includes('duplicate column')) {
+                console.log('ℹ️ Columna cuenta ya existe');
+            }
+        }
+
+        try {
+            // Intentar agregar notas si no existe
+            await db.execAsync(`ALTER TABLE transacciones ADD COLUMN notas TEXT`);
+            console.log('✅ Columna notas agregada');
+        } catch (error) {
+            // Si ya existe, ignorar el error
+            if (!error.message.includes('duplicate column')) {
+                console.log('ℹ️ Columna notas ya existe');
             }
         }
 
@@ -282,9 +313,24 @@ export const verificarOCrearSesionPrueba = async () => {
 
 export const guardarTransaccion = async (transaccion, usuarioEmail) => {
     try {
+        console.log('💾 Intentando guardar transacción...', transaccion);
+
+        if (!usuarioEmail) {
+            throw new Error('No hay usuario activo');
+        }
+
         const database = await getDB();
+        if (!database) {
+            throw new Error('Base de datos no inicializada');
+        }
+
+        // Validar datos requeridos
+        if (!transaccion.tipo || !transaccion.monto || !transaccion.fecha_transaccion) {
+            throw new Error('Faltan datos requeridos en la transacción');
+        }
 
         // 1. Guardar la transacción
+        console.log('📝 Guardando transacción en BD...');
         const result = await database.runAsync(
             `INSERT INTO transacciones (usuario_email, tipo, monto, categoria, descripcion, fecha_transaccion, fecha_pago, cuenta, notas, fecha) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -292,7 +338,7 @@ export const guardarTransaccion = async (transaccion, usuarioEmail) => {
                 usuarioEmail.toLowerCase(),
                 transaccion.tipo,
                 parseFloat(transaccion.monto),
-                transaccion.categoria,
+                transaccion.categoria || 'Otros',
                 transaccion.descripcion || '',
                 transaccion.fecha_transaccion,
                 transaccion.fecha_pago || transaccion.fecha_transaccion,
@@ -306,13 +352,14 @@ export const guardarTransaccion = async (transaccion, usuarioEmail) => {
 
         // 2. Actualizar el saldo de la cuenta automáticamente
         if (transaccion.cuenta && transaccion.cuenta !== 'Sin cuenta') {
+            console.log('💳 Actualizando saldo de cuenta:', transaccion.cuenta);
             const cuenta = await database.getFirstAsync(
                 'SELECT * FROM cuentas WHERE nombre = ? AND usuario_email = ?',
                 [transaccion.cuenta, usuarioEmail.toLowerCase()]
             );
 
             if (cuenta) {
-                let nuevoSaldo = cuenta.saldo;
+                let nuevoSaldo = parseFloat(cuenta.saldo);
                 const monto = parseFloat(transaccion.monto);
 
                 // Actualizar saldo según el tipo de transacción
@@ -338,7 +385,8 @@ export const guardarTransaccion = async (transaccion, usuarioEmail) => {
 
         return { success: true, id: result.lastInsertRowId };
     } catch (error) {
-        console.error('❌ Error al guardar transacción:', error);
+        console.error('❌ Error completo al guardar transacción:', error);
+        console.error('Stack:', error.stack);
         return { success: false, error: error.message };
     }
 };
