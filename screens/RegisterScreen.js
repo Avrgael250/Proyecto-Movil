@@ -11,139 +11,67 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmar, setConfirmar] = useState('');
   const [aceptarCondiciones, setAceptarCondiciones] = useState(false);
+  const [mostrarPassword, setMostrarPassword] = useState(false);
 
   useEffect(() => {
-    const hideSystemBars = async () => {
+    const hideBars = async () => {
       if (Platform.OS === 'android') {
         await StatusBar.setTranslucent(true);
         await NavigationBar.setVisibilityAsync('hidden');
         await NavigationBar.setBehaviorAsync('overlay');
         StatusBar.setHidden(true);
-      } else {
-        StatusBar.setHidden(true, 'fade');
-      }
+      } else StatusBar.setHidden(true, 'fade');
     };
-
-    const showSystemBars = async () => {
+    const showBars = async () => {
       if (Platform.OS === 'android') {
         await StatusBar.setTranslucent(false);
         await NavigationBar.setVisibilityAsync('visible');
         StatusBar.setHidden(false);
-      } else {
-        StatusBar.setHidden(false, 'fade');
-      }
+      } else StatusBar.setHidden(false, 'fade');
     };
-
-    if (isFocused) {
-      hideSystemBars();
-    }
-
-    return () => {
-      showSystemBars();
-    };
+    if (isFocused) hideBars();
+    return () => showBars();
   }, [isFocused]);
 
-  // validacion de correo para que tenga @ y un dominio 
   const validarEmail = (correo) => {
     const dominiosValidos = ['gmail.com', 'yahoo.com', 'hotmail.com', 'icloud.com', 'outlook.com', 'yamail.com'];
     if (!correo.includes('@')) return false;
-    const partes = correo.split('@');
-    if (partes.length !== 2) return false;
-    const dominio = partes[1].toLowerCase();
-    return dominiosValidos.includes(dominio);
+    const [_, dominio] = correo.split('@');
+    return dominiosValidos.includes(dominio.toLowerCase());
   };
 
-  const mostrarAlerta = (titulo, mensaje) => {
-    if (Platform.OS === 'web') {
-      window.alert(`${titulo}: ${mensaje}`);
-    } else {
-      Alert.alert(titulo, mensaje);
-    }
-  };
+  const mostrarAlerta = (t, m) => Platform.OS === 'web' ? window.alert(`${t}: ${m}`) : Alert.alert(t, m);
 
   const manejarRegistro = async () => {
-    // campos sin llenar
-    if (!email.trim() || !password.trim() || !confirmar.trim()) {
-      mostrarAlerta('ERROR', 'Por favor llena todos los campos');
-      return;
-    }
+    if (!email.trim() || !password.trim() || !confirmar.trim()) return mostrarAlerta('ERROR', 'Por favor llena todos los campos');
+    if (!validarEmail(email)) return mostrarAlerta('ERROR', 'Correo no válido');
+    if (password !== confirmar) return mostrarAlerta('ERROR', 'Las contraseñas no coinciden');
+    if (!aceptarCondiciones) return mostrarAlerta('ERROR', 'Debes aceptar los términos');
 
-    // correo no valido
-    if (!validarEmail(email)) {
-      mostrarAlerta('ERROR', 'Correo no válido. Asegúrate de incluir un dominio correcto');
-      return;
-    }
-
-    // contraseñas no iguales
-    if (password !== confirmar) {
-      mostrarAlerta('ERROR', 'Las contraseñas no coinciden');
-      return;
-    }
-
-    // aceptar terminos
-    if (!aceptarCondiciones) {
-      mostrarAlerta('ERROR', 'Necesitas aceptar los términos y condiciones para continuar');
-      return;
-    }
-
-    // 🗄️ GUARDAR EN SQLITE
     const resultado = await registrarUsuario(email, password);
-
     if (resultado.success) {
-      mostrarAlerta('Bienvenido', 'Tu cuenta ha sido creada correctamente.\nYa puedes ingresar');
-      // Limpiar campos
-      setEmail('');
-      setPassword('');
-      setConfirmar('');
-      setAceptarCondiciones(false);
-      // Navegar al login
-      setTimeout(() => {
-        navigation.navigate('Login');
-      }, 1500);
-    } else {
-      mostrarAlerta('ERROR', resultado.error || 'Error al crear la cuenta');
-    }
+      mostrarAlerta('Bienvenido', 'Tu cuenta ha sido creada');
+      navigation.navigate('Login');
+    } else mostrarAlerta('ERROR', resultado.error || 'Error');
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Crear Cuenta</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Correo electrónico"
-        placeholderTextColor="#999"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
+      <TextInput style={styles.input} placeholder="Correo electrónico" placeholderTextColor="#999" keyboardType="email-address" value={email} onChangeText={setEmail} />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Contraseña"
-        placeholderTextColor="#999"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+      <TextInput style={styles.input} placeholder="Contraseña" placeholderTextColor="#999" secureTextEntry={!mostrarPassword} value={password} onChangeText={setPassword} />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Confirmar contraseña"
-        placeholderTextColor="#999"
-        secureTextEntry
-        value={confirmar}
-        onChangeText={setConfirmar}
-      />
+      <TextInput style={styles.input} placeholder="Confirmar contraseña" placeholderTextColor="#999" secureTextEntry={!mostrarPassword} value={confirmar} onChangeText={setConfirmar} />
 
-      {/* Switch */}
       <View style={styles.switchContainer}>
-        <Switch
-          value={aceptarCondiciones}
-          onValueChange={setAceptarCondiciones}
-          thumbColor={aceptarCondiciones ? '#4A8FE7' : '#ccc'}
-          trackColor={{ false: '#ddd', true: '#A7C7F2' }}
-        />
+        <Switch value={mostrarPassword} onValueChange={setMostrarPassword} />
+        <Text style={styles.switchText}>Mostrar contraseñas</Text>
+      </View>
+
+      <View style={styles.switchContainer}>
+        <Switch value={aceptarCondiciones} onValueChange={setAceptarCondiciones} />
         <Text style={styles.switchText}>Aceptar términos y condiciones</Text>
       </View>
 
@@ -151,7 +79,7 @@ export default function RegisterScreen() {
         <Text style={styles.buttonText}>Registrar</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate('Login')}>
+      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
         <Text style={styles.linkText}>¿Ya tienes cuenta? Inicia sesión</Text>
       </TouchableOpacity>
     </SafeAreaView>

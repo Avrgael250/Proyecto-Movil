@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  SafeAreaView,
+  Platform
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { validarCredenciales, guardarSesion } from '../database/database';
 
@@ -25,34 +34,32 @@ export default function LoginScreen() {
 
     if (!validarEmail(email)) {
       if (Platform.OS === 'web') {
-        window.alert('ERROR: el correo está mal escrito.\nDebe contener "@" y un dominio válido (ejemplo@gmail.com)');
+        window.alert(
+          'ERROR: el correo está mal escrito.\nDebe contener "@" y un dominio válido'
+        );
       } else {
-        Alert.alert('ERROR', 'El correo está mal escrito.\nDebe contener "@" y un dominio válido (ejemplo@gmail.com)');
+        Alert.alert(
+          'ERROR',
+          'El correo está mal escrito.\nDebe contener "@" y un dominio válido'
+        );
       }
       return;
     }
 
-    // 🗄️ VALIDAR CREDENCIALES EN SQLITE
     const usuario = await validarCredenciales(email, password);
 
     if (usuario) {
       await guardarSesion(usuario.email);
-
-      // 👀 VER DATOS EN CONSOLA
-      console.log('\n========== LOGIN EXITOSO ==========');
-      console.log('✅ Usuario:', usuario.email);
-      console.log('📅 Registro:', usuario.fecha_registro);
-      console.log('===================================\n');
 
       if (Platform.OS === 'web') {
         window.alert('BIENVENIDO ' + usuario.email);
       } else {
         Alert.alert('BIENVENIDO', usuario.email);
       }
-      // Navegar a Home
+
       setTimeout(() => {
-        navigation.navigate('Home');
-      }, 1000);
+        navigation.replace('HomeTabs'); 
+      }, 500);
     } else {
       if (Platform.OS === 'web') {
         window.alert('ERROR: Correo o contraseña incorrectos');
@@ -89,13 +96,15 @@ export default function LoginScreen() {
         <Text style={styles.buttonText}>Iniciar Sesión</Text>
       </TouchableOpacity>
 
-      {/* registro */}
       <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-        <Text style={styles.linkText}>¿No tienes una cuenta? Crear cuenta</Text>
+        <Text style={styles.linkText}>
+          ¿No tienes una cuenta? Crear cuenta
+        </Text>
       </TouchableOpacity>
 
-      {/*olvido de contraseña */}
-      <TouchableOpacity onPress={() => alert('Funcionalidad próximamente')}>
+      <TouchableOpacity
+        onPress={() => navigation.navigate('RecuperarContrasena')}
+      >
         <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -150,3 +159,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+

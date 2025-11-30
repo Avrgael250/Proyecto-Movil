@@ -1,70 +1,62 @@
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
-// Importar las pantallas
+import LoginScreen from '../screens/LoginScreen';
+import RegisterScreen from '../screens/RegisterScreen';
+import RecuperarContrasenaScreen from '../screens/RecuperarContrasenaScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
+
 import Home from '../screens/Inicio';
 import PresupuestosMensuales from '../screens/PresupuestosMensuales';
 import Tarjetas from '../screens/Tarjetas';
 import Cuentas from '../screens/Cuentas';
 import ScreenDeTransacciones from '../screens/ScreenDeTransacciones';
 
+const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-export default function Navigation() {
-    return (
-        <NavigationContainer>
-            <Tab.Navigator
-                screenOptions={({ route }) => ({
-                    headerShown: false,
-                    tabBarIcon: ({ focused, color, size }) => {
-                        let iconName;
+function HomeTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarIcon: ({ color, size }) => {
+          let icon;
 
-                        if (route.name === 'Home') {
-                            iconName = focused ? 'home' : 'home-outline';
-                        } else if (route.name === 'PresupuestosMensuales') {
-                            iconName = focused ? 'pie-chart' : 'pie-chart-outline';
-                        } else if (route.name === 'Tarjetas') {
-                            iconName = focused ? 'card' : 'card-outline';
-                        } else if (route.name === 'Cuentas') {
-                            iconName = focused ? 'wallet' : 'wallet-outline';
-                        } else if (route.name === 'Transacciones') {
-                            iconName = focused ? 'swap-horizontal' : 'swap-horizontal-outline';
-                        }
+          if (route.name === 'Home') icon = 'home-outline';
+          if (route.name === 'PresupuestosMensuales') icon = 'pie-chart-outline';
+          if (route.name === 'Tarjetas') icon = 'card-outline';
+          if (route.name === 'Cuentas') icon = 'wallet-outline';
+          if (route.name === 'Transacciones') icon = 'swap-horizontal-outline';
 
-                        return <Ionicons name={iconName} size={size} color={color} />;
-                    },
-                    tabBarActiveTintColor: '#2196F3',
-                    tabBarInactiveTintColor: 'gray',
-                })}
-            >
-                <Tab.Screen 
-                    name="Home" 
-                    component={Home}
-                    options={{ tabBarLabel: 'Inicio' }}
-                />
-                <Tab.Screen 
-                    name="PresupuestosMensuales" 
-                    component={PresupuestosMensuales}
-                    options={{ tabBarLabel: 'Presupuestos' }}
-                />
-                <Tab.Screen 
-                    name="Tarjetas" 
-                    component={Tarjetas}
-                    options={{ tabBarLabel: 'Tarjetas' }}
-                />
-                <Tab.Screen 
-                    name="Cuentas" 
-                    component={Cuentas}
-                    options={{ tabBarLabel: 'Cuentas' }}
-                />
-                <Tab.Screen 
-                    name="Transacciones" 
-                    component={ScreenDeTransacciones}
-                    options={{ tabBarLabel: 'Transacciones' }}
-                />
-            </Tab.Navigator>
-        </NavigationContainer>
-    );
+          return <Ionicons name={icon} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#2196F3',
+        tabBarInactiveTintColor: 'gray',
+      })}
+    >
+      <Tab.Screen name="Home" component={Home} />
+      <Tab.Screen name="PresupuestosMensuales" component={PresupuestosMensuales} />
+      <Tab.Screen name="Tarjetas" component={Tarjetas} />
+      <Tab.Screen name="Cuentas" component={Cuentas} />
+      <Tab.Screen name="Transacciones" component={ScreenDeTransacciones} />
+    </Tab.Navigator>
+  );
+}
+
+export default function AppNavigation() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="RecuperarContrasena" component={RecuperarContrasenaScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+        <Stack.Screen name="HomeTabs" component={HomeTabs} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
 }
