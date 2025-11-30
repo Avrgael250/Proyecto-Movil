@@ -1,69 +1,73 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Platform } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import {
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  SafeAreaView
+} from 'react-native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { actualizarPassword } from '../database/database';
 
 export default function ResetPasswordScreen() {
-  const navigation = useNavigation();
   const route = useRoute();
+  const navigation = useNavigation();
   const { email } = route.params;
 
-  const [password, setPassword] = useState('');
-  const [confirmar, setConfirmar] = useState('');
+  const [password1, setPassword1] = useState('');
+  const [password2, setPassword2] = useState('');
 
-  const mostrarAlerta = (titulo, mensaje) => {
-    if (Platform.OS === 'web') {
-      window.alert(`${titulo}: ${mensaje}`);
+  const manejarCambio = async () => {
+    if (!password1.trim() || !password2.trim()) {
+      Alert.alert('ERROR', 'Llena todos los campos');
+      return;
+    }
+
+    if (password1 !== password2) {
+      Alert.alert('ERROR', 'Las contraseñas no coinciden');
+      return;
+    }
+
+    const resultado = await actualizarPassword(email, password1);
+
+    if (resultado.success) {
+      Alert.alert(
+        'Éxito',
+        'Tu contraseña ha sido actualizada',
+        [{ text: 'OK', onPress: () => navigation.replace('Login') }]
+      );
     } else {
-      Alert.alert(titulo, mensaje);
+      Alert.alert('ERROR', 'No se pudo actualizar la contraseña');
     }
-  };
-
-  const manejarReset = async () => {
-    if (!password.trim() || !confirmar.trim()) {
-      mostrarAlerta('ERROR', 'Llena ambos campos');
-      return;
-    }
-
-    if (password !== confirmar) {
-      mostrarAlerta('ERROR', 'Las contraseñas no coinciden');
-      return;
-    }
-
-    await actualizarPassword(email, password);
-
-    mostrarAlerta('Éxito', 'Tu contraseña ha sido actualizada');
-
-    setTimeout(() => {
-      navigation.navigate('Login');
-    }, 1000);
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Restablecer Contraseña</Text>
 
-      <Text style={styles.subTitle}>Correo:</Text>
-      <Text style={styles.emailText}>{email}</Text>
-
       <TextInput
         style={styles.input}
         placeholder="Nueva contraseña"
         secureTextEntry
-        value={password}
-        onChangeText={setPassword}
+        value={password1}
+        onChangeText={setPassword1}
       />
 
       <TextInput
         style={styles.input}
-        placeholder="Confirmar nueva contraseña"
+        placeholder="Confirmar contraseña"
         secureTextEntry
-        value={confirmar}
-        onChangeText={setConfirmar}
+        value={password2}
+        onChangeText={setPassword2}
       />
 
-      <TouchableOpacity style={styles.button} onPress={manejarReset}>
-        <Text style={styles.buttonText}>Actualizar Contraseña</Text>
+      <TouchableOpacity style={styles.button} onPress={manejarCambio}>
+        <Text style={styles.buttonText}>Guardar nueva contraseña</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+        <Text style={styles.linkText}>Cancelar</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -78,43 +82,35 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#030213',
-    marginBottom: 20,
-  },
-  subTitle: {
-    fontSize: 16,
-    color: '#030213',
-    marginBottom: 4,
-  },
-  emailText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4A8FE7',
-    marginBottom: 20,
+    marginBottom: 30,
   },
   input: {
     width: '90%',
     backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ccc',
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    fontSize: 16,
   },
   button: {
     width: '90%',
     backgroundColor: '#4A8FE7',
+    padding: 14,
     borderRadius: 12,
-    padding: 16,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 10,
   },
   buttonText: {
-    color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  linkText: {
+    marginTop: 20,
+    color: '#4A8FE7',
   },
 });
