@@ -8,10 +8,11 @@ import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import RecuperarContrasenaScreen from '../screens/RecuperarContrasenaScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
+import ConfiguracionScreen from '../screens/ConfiguracionScreen';
 
 import Home from '../screens/Inicio';
 import PresupuestosMensuales from '../screens/PresupuestosMensuales';
-import Tarjetas from '../screens/Tarjetas';
+import Tarjetas from '../screens/GraficasScreen';
 import Cuentas from '../screens/Cuentas';
 import ScreenDeTransacciones from '../screens/ScreenDeTransacciones';
 
@@ -26,9 +27,9 @@ function HomeTabs() {
         tabBarIcon: ({ color, size }) => {
           let icon;
 
-          if (route.name === 'Home') icon = 'home-outline';
-          if (route.name === 'PresupuestosMensuales') icon = 'pie-chart-outline';
-          if (route.name === 'Tarjetas') icon = 'card-outline';
+          if (route.name === 'Inicio') icon = 'home-outline';
+          if (route.name === 'Presupuesto') icon = 'calendar-outline';
+          if (route.name === 'Gráficas') icon = 'pie-chart-outline';
           if (route.name === 'Cuentas') icon = 'wallet-outline';
           if (route.name === 'Transacciones') icon = 'swap-horizontal-outline';
 
@@ -38,9 +39,9 @@ function HomeTabs() {
         tabBarInactiveTintColor: 'gray',
       })}
     >
-      <Tab.Screen name="Home" component={Home} />
-      <Tab.Screen name="PresupuestosMensuales" component={PresupuestosMensuales} />
-      <Tab.Screen name="Tarjetas" component={Tarjetas} />
+      <Tab.Screen name="Inicio" component={Home} />
+      <Tab.Screen name="Presupuesto" component={PresupuestosMensuales} />
+      <Tab.Screen name="Gráficas" component={Tarjetas} />
       <Tab.Screen name="Cuentas" component={Cuentas} />
       <Tab.Screen name="Transacciones" component={ScreenDeTransacciones} />
     </Tab.Navigator>
@@ -56,6 +57,7 @@ export default function AppNavigation() {
         <Stack.Screen name="RecuperarContrasena" component={RecuperarContrasenaScreen} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         <Stack.Screen name="HomeTabs" component={HomeTabs} />
+        <Stack.Screen name="Configuracion" component={ConfiguracionScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

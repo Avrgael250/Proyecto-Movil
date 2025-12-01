@@ -79,8 +79,6 @@ const ScreenDeTransacciones = () => {
           await NavigationBar.setVisibilityAsync('hidden');
           await NavigationBar.setBehaviorAsync('inset-swipe');
           await NavigationBar.setPositionAsync('absolute');
-
-          console.log('✅ Barras del sistema ocultadas');
         } catch (error) {
           console.error('Error al ocultar barras:', error);
         }
@@ -96,8 +94,6 @@ const ScreenDeTransacciones = () => {
           StatusBar.setTranslucent(false);
           await NavigationBar.setVisibilityAsync('visible');
           await NavigationBar.setPositionAsync('relative');
-
-          console.log('✅ Barras del sistema restauradas');
         } catch (error) {
           console.error('Error al restaurar barras:', error);
         }
@@ -179,7 +175,8 @@ const ScreenDeTransacciones = () => {
 
       const transaccionesFormateadas = transaccionesDB.map(transaccion => ({
         id: transaccion.id.toString(),
-        tipo: transaccion.tipo.toLowerCase(),
+        // Normalizar tipos: Ingreso/Reembolso -> 'ingreso', Gasto/Egreso/Pago -> 'gasto'
+        tipo: (transaccion.tipo === 'Ingreso' || transaccion.tipo === 'Reembolso') ? 'ingreso' : 'gasto',
         monto: parseFloat(transaccion.monto),
         categoria: transaccion.categoria,
         descripcion: transaccion.descripcion,
@@ -274,7 +271,7 @@ const ScreenDeTransacciones = () => {
     try {
       if (transaccionEditando) {
         const transaccionActualizada = {
-          tipo: datosFormulario.tipo === 'ingreso' ? 'Ingreso' : 'Egreso',
+          tipo: datosFormulario.tipo === 'ingreso' ? 'Ingreso' : 'Gasto',
           monto: parseFloat(datosFormulario.monto),
           categoria: datosFormulario.categoria,
           descripcion: datosFormulario.descripcion,
@@ -292,7 +289,7 @@ const ScreenDeTransacciones = () => {
         }
       } else {
         const nuevaTransaccion = {
-          tipo: datosFormulario.tipo === 'ingreso' ? 'Ingreso' : 'Egreso',
+          tipo: datosFormulario.tipo === 'ingreso' ? 'Ingreso' : 'Gasto',
           monto: parseFloat(datosFormulario.monto),
           categoria: datosFormulario.categoria,
           descripcion: datosFormulario.descripcion,

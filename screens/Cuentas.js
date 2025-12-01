@@ -77,17 +77,11 @@ export default function Cuentas() {
 
     const cargarDatos = async () => {
         try {
-            console.log('🔄 Cargando datos de cuentas...');
             const sesion = await obtenerSesion();
-            console.log('📧 Sesión en Cuentas:', sesion);
             if (sesion && sesion.usuario_email) {
                 setUsuarioEmail(sesion.usuario_email);
                 const cuentasDb = await obtenerCuentasUsuario(sesion.usuario_email);
-                console.log('💳 Cuentas obtenidas:', cuentasDb);
-                console.log('📊 Total de cuentas:', cuentasDb.length);
                 setCuentas(cuentasDb);
-            } else {
-                console.log('⚠️ No hay sesión activa en Cuentas');
             }
         } catch (error) {
             console.error('❌ Error al cargar datos:', error);
@@ -147,17 +141,12 @@ export default function Cuentas() {
             gastado: parseFloat(gastadoCuenta) || 0,
         };
 
-        console.log('💾 Guardando cuenta:', nuevaCuenta);
-        console.log('👤 Usuario:', usuarioEmail);
-
         try {
             if (editando && cuentaSeleccionada) {
-                const resultado = await actualizarCuenta(cuentaSeleccionada.id, nuevaCuenta);
-                console.log('✅ Resultado actualización:', resultado);
+                await actualizarCuenta(cuentaSeleccionada.id, nuevaCuenta);
                 Alert.alert('Éxito', 'Cuenta actualizada correctamente');
             } else {
-                const resultado = await guardarCuenta(nuevaCuenta, usuarioEmail);
-                console.log('✅ Resultado guardado:', resultado);
+                await guardarCuenta(nuevaCuenta, usuarioEmail);
                 Alert.alert('Éxito', 'Cuenta guardada correctamente');
             }
             setModalVisible(false);

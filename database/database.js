@@ -1,22 +1,26 @@
 import * as SQLite from 'expo-sqlite';
 
 let db = null;
-let dbPromise = null;
 
 // Función auxiliar para asegurar que la DB está inicializada
 const getDB = async () => {
     if (db) {
+        try {
+            // Verificar si la conexión sigue siendo válida
+            await db.getFirstAsync('SELECT 1');
+            return db;
+        } catch (error) {
+            // La conexión ya no es válida, reconectar
+            db = null;
+        }
+    }
+
+    try {
+        db = await SQLite.openDatabaseAsync('ahorraplus.db');
         return db;
+    } catch (error) {
+        throw error;
     }
-
-    if (dbPromise) {
-        return await dbPromise;
-    }
-
-    dbPromise = SQLite.openDatabaseAsync('ahorraplus.db');
-    db = await dbPromise;
-    dbPromise = null;
-    return db;
 };
 
 // ============ INICIALIZACIÓN DE LA BASE DE DATOS ============
@@ -57,45 +61,29 @@ export const inicializarDB = async () => {
         try {
             // Intentar agregar fecha_transaccion si no existe
             await db.execAsync(`ALTER TABLE transacciones ADD COLUMN fecha_transaccion TEXT`);
-            console.log('✅ Columna fecha_transaccion agregada');
         } catch (error) {
             // Si ya existe, ignorar el error
-            if (!error.message.includes('duplicate column')) {
-                console.log('ℹ️ Columna fecha_transaccion ya existe');
-            }
         }
 
         try {
             // Intentar agregar fecha_pago si no existe
             await db.execAsync(`ALTER TABLE transacciones ADD COLUMN fecha_pago TEXT`);
-            console.log('✅ Columna fecha_pago agregada');
         } catch (error) {
             // Si ya existe, ignorar el error
-            if (!error.message.includes('duplicate column')) {
-                console.log('ℹ️ Columna fecha_pago ya existe');
-            }
         }
 
         try {
             // Intentar agregar cuenta si no existe
             await db.execAsync(`ALTER TABLE transacciones ADD COLUMN cuenta TEXT`);
-            console.log('✅ Columna cuenta agregada');
         } catch (error) {
             // Si ya existe, ignorar el error
-            if (!error.message.includes('duplicate column')) {
-                console.log('ℹ️ Columna cuenta ya existe');
-            }
         }
 
         try {
             // Intentar agregar notas si no existe
             await db.execAsync(`ALTER TABLE transacciones ADD COLUMN notas TEXT`);
-            console.log('✅ Columna notas agregada');
         } catch (error) {
             // Si ya existe, ignorar el error
-            if (!error.message.includes('duplicate column')) {
-                console.log('ℹ️ Columna notas ya existe');
-            }
         }
 
         // Crear tabla de presupuestos
@@ -137,10 +125,8 @@ export const inicializarDB = async () => {
       );
     `);
 
-        console.log('✅ Base de datos SQLite inicializada correctamente');
         return true;
     } catch (error) {
-        console.error('❌ Error al inicializar DB:', error);
         return false;
     }
 };
@@ -159,7 +145,6 @@ export const registrarUsuario = async (email, password) => {
         if (error.message.includes('UNIQUE constraint failed')) {
             return { success: false, error: 'Este correo ya está registrado' };
         }
-        console.error('Error al registrar usuario:', error);
         return { success: false, error: 'Error al crear la cuenta' };
     }
 };
@@ -173,7 +158,6 @@ export const validarCredenciales = async (email, password) => {
         );
         return result;
     } catch (error) {
-        console.error('Error al validar credenciales:', error);
         return null;
     }
 };
@@ -187,7 +171,6 @@ export const obtenerUsuarioPorEmail = async (email) => {
         );
         return result;
     } catch (error) {
-        console.error('Error al obtener usuario:', error);
         return null;
     }
 };
@@ -201,7 +184,6 @@ export const actualizarPassword = async (email, nuevaPassword) => {
         );
         return { success: true };
     } catch (error) {
-        console.error('Error al actualizar contraseña:', error);
         return { success: false };
     }
 };
@@ -212,7 +194,6 @@ export const obtenerTodosLosUsuarios = async () => {
         const result = await database.getAllAsync('SELECT email FROM usuarios');
         return result || [];
     } catch (error) {
-        console.error('Error al obtener usuarios:', error);
         return [];
     }
 };
@@ -229,7 +210,6 @@ export const guardarSesion = async (email) => {
         );
         return true;
     } catch (error) {
-        console.error('Error al guardar sesión:', error);
         return false;
     }
 };
@@ -237,17 +217,13 @@ export const guardarSesion = async (email) => {
 export const obtenerSesion = async () => {
     try {
         const database = await getDB();
-        const result = await database.getFirstAsync('SELECT * FROM sesion_activa WHERE id = 1');
-
-        if (!result) {
-            console.log('⚠️ No hay sesión activa. Por favor inicia sesión en la app.');
-        } else {
-            console.log('✅ Sesión activa:', result.usuario_email);
+        if (!database) {
+            return null;
         }
 
+        const result = await database.getFirstAsync('SELECT * FROM sesion_activa WHERE id = 1');
         return result;
     } catch (error) {
-        console.error('❌ Error al obtener sesión:', error);
         return null;
     }
 };
@@ -258,7 +234,6 @@ export const cerrarSesion = async () => {
         await database.runAsync('DELETE FROM sesion_activa');
         return true;
     } catch (error) {
-        console.error('Error al cerrar sesión:', error);
         return false;
     }
 };
@@ -271,7 +246,6 @@ export const verificarOCrearSesionPrueba = async () => {
         // Verificar si hay sesión activa
         const sesion = await obtenerSesion();
         if (sesion) {
-            console.log('✅ Ya hay sesión activa:', sesion.usuario_email);
             return sesion;
         }
 
@@ -280,15 +254,12 @@ export const verificarOCrearSesionPrueba = async () => {
 
         if (todosLosUsuarios && todosLosUsuarios.length > 0) {
             const usuario = todosLosUsuarios[0];
-            console.log('🔧 Creando sesión automática para:', usuario.email);
             await guardarSesion(usuario.email);
             const nuevaSesion = await obtenerSesion();
-            console.log('✅ Sesión de prueba creada para:', usuario.email);
             return nuevaSesion;
         }
 
         // Si no hay usuarios, crear uno de prueba
-        console.log('📝 No hay usuarios. Creando usuario de prueba...');
         const emailPrueba = '124051493@gmail.com';
         const passwordPrueba = '123456';
 
@@ -297,14 +268,11 @@ export const verificarOCrearSesionPrueba = async () => {
             [emailPrueba, passwordPrueba]
         );
 
-        console.log('✅ Usuario de prueba creado:', emailPrueba);
         await guardarSesion(emailPrueba);
 
         const nuevaSesion = await obtenerSesion();
-        console.log('✅ Sesión iniciada automáticamente para:', emailPrueba);
         return nuevaSesion;
     } catch (error) {
-        console.error('❌ Error al verificar sesión de prueba:', error);
         return null;
     }
 };
@@ -313,8 +281,6 @@ export const verificarOCrearSesionPrueba = async () => {
 
 export const guardarTransaccion = async (transaccion, usuarioEmail) => {
     try {
-        console.log('💾 Intentando guardar transacción...', transaccion);
-
         if (!usuarioEmail) {
             throw new Error('No hay usuario activo');
         }
@@ -330,7 +296,6 @@ export const guardarTransaccion = async (transaccion, usuarioEmail) => {
         }
 
         // 1. Guardar la transacción
-        console.log('📝 Guardando transacción en BD...');
         const result = await database.runAsync(
             `INSERT INTO transacciones (usuario_email, tipo, monto, categoria, descripcion, fecha_transaccion, fecha_pago, cuenta, notas, fecha) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -348,11 +313,8 @@ export const guardarTransaccion = async (transaccion, usuarioEmail) => {
             ]
         );
 
-        console.log('✅ Transacción guardada con ID:', result.lastInsertRowId);
-
         // 2. Actualizar el saldo de la cuenta automáticamente
         if (transaccion.cuenta && transaccion.cuenta !== 'Sin cuenta') {
-            console.log('💳 Actualizando saldo de cuenta:', transaccion.cuenta);
             const cuenta = await database.getFirstAsync(
                 'SELECT * FROM cuentas WHERE nombre = ? AND usuario_email = ?',
                 [transaccion.cuenta, usuarioEmail.toLowerCase()]
@@ -365,10 +327,8 @@ export const guardarTransaccion = async (transaccion, usuarioEmail) => {
                 // Actualizar saldo según el tipo de transacción
                 if (transaccion.tipo === 'Gasto' || transaccion.tipo === 'Pago') {
                     nuevoSaldo -= monto; // Resta para gastos y pagos
-                    console.log(`💸 Gasto de $${monto} - Saldo anterior: $${cuenta.saldo} → Nuevo saldo: $${nuevoSaldo}`);
                 } else if (transaccion.tipo === 'Ingreso' || transaccion.tipo === 'Reembolso') {
                     nuevoSaldo += monto; // Suma para ingresos y reembolsos
-                    console.log(`💰 Ingreso de $${monto} - Saldo anterior: $${cuenta.saldo} → Nuevo saldo: $${nuevoSaldo}`);
                 }
 
                 // Guardar el nuevo saldo
@@ -376,17 +336,11 @@ export const guardarTransaccion = async (transaccion, usuarioEmail) => {
                     'UPDATE cuentas SET saldo = ? WHERE id = ?',
                     [nuevoSaldo, cuenta.id]
                 );
-
-                console.log(`✅ Saldo de "${transaccion.cuenta}" actualizado a $${nuevoSaldo.toFixed(2)}`);
-            } else {
-                console.log('⚠️ Cuenta no encontrada:', transaccion.cuenta);
             }
         }
 
         return { success: true, id: result.lastInsertRowId };
     } catch (error) {
-        console.error('❌ Error completo al guardar transacción:', error);
-        console.error('Stack:', error.stack);
         return { success: false, error: error.message };
     }
 };
@@ -400,7 +354,6 @@ export const obtenerTransacciones = async (usuarioEmail) => {
         );
         return result || [];
     } catch (error) {
-        console.error('Error al obtener transacciones:', error);
         return [];
     }
 };
@@ -410,7 +363,7 @@ export const actualizarTransaccion = async (id, transaccion) => {
         const database = await getDB();
         await database.runAsync(
             `UPDATE transacciones 
-       SET tipo = ?, monto = ?, categoria = ?, descripcion = ?, fecha = ? 
+       SET tipo = ?, monto = ?, categoria = ?, descripcion = ?, fecha = ?, fecha_pago = ?, cuenta = ?, notas = ? 
        WHERE id = ?`,
             [
                 transaccion.tipo,
@@ -418,12 +371,14 @@ export const actualizarTransaccion = async (id, transaccion) => {
                 transaccion.categoria,
                 transaccion.descripcion || '',
                 transaccion.fecha,
+                transaccion.fecha_pago || transaccion.fecha,
+                transaccion.cuenta || '',
+                transaccion.notas || '',
                 id
             ]
         );
         return { success: true };
     } catch (error) {
-        console.error('Error al actualizar transacción:', error);
         return { success: false };
     }
 };
@@ -434,7 +389,6 @@ export const eliminarTransaccion = async (id) => {
         await database.runAsync('DELETE FROM transacciones WHERE id = ?', [id]);
         return { success: true };
     } catch (error) {
-        console.error('Error al eliminar transacción:', error);
         return { success: false };
     }
 };
@@ -448,7 +402,6 @@ export const obtenerTransaccionesPorCategoria = async (usuarioEmail, categoria) 
         );
         return result || [];
     } catch (error) {
-        console.error('Error al obtener transacciones por categoría:', error);
         return [];
     }
 };
@@ -462,7 +415,6 @@ export const obtenerTransaccionesPorFecha = async (usuarioEmail, fechaInicio, fe
         );
         return result || [];
     } catch (error) {
-        console.error('Error al obtener transacciones por fecha:', error);
         return [];
     }
 };
@@ -476,7 +428,6 @@ export const obtenerTransaccionesPorTipo = async (usuarioEmail, tipo) => {
         );
         return result || [];
     } catch (error) {
-        console.error('Error al obtener transacciones por tipo:', error);
         return [];
     }
 };
@@ -494,7 +445,6 @@ export const obtenerResumenPorCategoria = async (usuarioEmail, tipo) => {
         );
         return result || [];
     } catch (error) {
-        console.error('Error al obtener resumen por categoría:', error);
         return [];
     }
 };
@@ -506,13 +456,12 @@ export const obtenerResumenEgresos = async (usuarioEmail) => {
         const result = await database.getAllAsync(
             `SELECT categoria, SUM(monto) as total 
        FROM transacciones 
-       WHERE usuario_email = ? AND tipo IN ('Gasto', 'Pago', 'Reembolso') 
+       WHERE usuario_email = ? AND tipo IN ('Gasto', 'Pago') 
        GROUP BY categoria`,
             [usuarioEmail.toLowerCase()]
         );
         return result || [];
     } catch (error) {
-        console.error('Error al obtener resumen de egresos:', error);
         return [];
     }
 };
@@ -531,7 +480,6 @@ export const obtenerTransaccionesDelMes = async (usuarioEmail, mes, año) => {
         );
         return result || [];
     } catch (error) {
-        console.error('Error al obtener transacciones del mes:', error);
         return [];
     }
 };
@@ -542,7 +490,7 @@ export const obtenerTotalesPorMes = async (usuarioEmail, mes, año) => {
         const database = await getDB();
         const ingresos = await database.getFirstAsync(
             `SELECT SUM(monto) as total FROM transacciones 
-       WHERE usuario_email = ? AND tipo = 'Ingreso'
+       WHERE usuario_email = ? AND tipo IN ('Ingreso', 'Reembolso')
        AND strftime('%m', fecha) = ? AND strftime('%Y', fecha) = ?`,
             [usuarioEmail.toLowerCase(), mes.padStart(2, '0'), año]
         );
@@ -559,8 +507,220 @@ export const obtenerTotalesPorMes = async (usuarioEmail, mes, año) => {
             egresos: egresos?.total || 0
         };
     } catch (error) {
-        console.error('Error al obtener totales por mes:', error);
         return { ingresos: 0, egresos: 0 };
+    }
+};
+
+// Función para obtener próximos pagos pendientes (transacciones con fecha_pago futura)
+export const obtenerProximosPagos = async (usuarioEmail, limite = 5) => {
+    try {
+        const database = await getDB();
+        const hoy = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+
+        const result = await database.getAllAsync(
+            `SELECT * FROM transacciones 
+             WHERE usuario_email = ? 
+             AND (fecha_pago >= ? OR fecha >= ?)
+             AND tipo IN ('Pago', 'Gasto')
+             ORDER BY fecha_pago ASC, fecha ASC
+             LIMIT ?`,
+            [usuarioEmail.toLowerCase(), hoy, hoy, limite]
+        );
+        return result || [];
+    } catch (error) {
+        return [];
+    }
+};
+
+// Función para obtener historial de transacciones recientes
+export const obtenerHistorialReciente = async (usuarioEmail, limite = 5) => {
+    try {
+        const database = await getDB();
+
+        const result = await database.getAllAsync(
+            `SELECT * FROM transacciones 
+             WHERE usuario_email = ? 
+             ORDER BY fecha DESC, id DESC
+             LIMIT ?`,
+            [usuarioEmail.toLowerCase(), limite]
+        );
+        return result || [];
+    } catch (error) {
+        return [];
+    }
+};
+
+// Función para obtener historial de gastos por categoría para gráficas de línea
+export const obtenerHistorialPorCategoria = async (usuarioEmail, tipoTiempo = 'Mensual', rangoData = null) => {
+    try {
+        const database = await getDB();
+        const now = new Date();
+        const año = now.getFullYear();
+        const resultado = [];
+
+        // Obtener las categorías únicas de gastos
+        const categorias = await database.getAllAsync(
+            `SELECT DISTINCT categoria FROM transacciones 
+             WHERE usuario_email = ? 
+             AND tipo IN ('Gasto', 'Pago', 'Egreso')
+             AND categoria IS NOT NULL`,
+            [usuarioEmail.toLowerCase()]
+        );
+
+        if (tipoTiempo === 'Mensual' && rangoData?.mesesData) {
+            // Usar los meses específicos del rango
+            const mesesData = rangoData.mesesData;
+
+            // Obtener total general por mes
+            const datosTotal = [];
+            for (const periodo of mesesData) {
+                const mesStr = periodo.mes.toString().padStart(2, '0');
+                const añoStr = periodo.año.toString();
+                const totalMes = await database.getFirstAsync(
+                    `SELECT COALESCE(SUM(monto), 0) as total FROM transacciones 
+                     WHERE usuario_email = ? 
+                     AND tipo IN ('Gasto', 'Pago', 'Egreso')
+                     AND strftime('%m', fecha) = ?
+                     AND strftime('%Y', fecha) = ?`,
+                    [usuarioEmail.toLowerCase(), mesStr, añoStr]
+                );
+                datosTotal.push(Math.round(totalMes?.total || 0));
+            }
+            resultado.push({ categoria: 'Total', datos: datosTotal });
+
+            // Obtener datos por cada categoría
+            for (const cat of categorias) {
+                const datosCategoria = [];
+                for (const periodo of mesesData) {
+                    const mesStr = periodo.mes.toString().padStart(2, '0');
+                    const añoStr = periodo.año.toString();
+                    const totalCat = await database.getFirstAsync(
+                        `SELECT COALESCE(SUM(monto), 0) as total FROM transacciones 
+                         WHERE usuario_email = ? 
+                         AND categoria = ?
+                         AND tipo IN ('Gasto', 'Pago', 'Egreso')
+                         AND strftime('%m', fecha) = ?
+                         AND strftime('%Y', fecha) = ?`,
+                        [usuarioEmail.toLowerCase(), cat.categoria, mesStr, añoStr]
+                    );
+                    datosCategoria.push(Math.round(totalCat?.total || 0));
+                }
+                if (datosCategoria.some(d => d > 0)) {
+                    resultado.push({ categoria: cat.categoria, datos: datosCategoria });
+                }
+            }
+        } else if (tipoTiempo === 'Trimestral') {
+            // 4 trimestres del año seleccionado
+            const añoTrimestre = rangoData?.año || año;
+            const trimestres = [
+                { inicio: '01', fin: '03' }, // Q1
+                { inicio: '04', fin: '06' }, // Q2
+                { inicio: '07', fin: '09' }, // Q3
+                { inicio: '10', fin: '12' }  // Q4
+            ];
+
+            // Obtener total general por trimestre
+            const datosTotal = [];
+            for (const trim of trimestres) {
+                const totalTrim = await database.getFirstAsync(
+                    `SELECT COALESCE(SUM(monto), 0) as total FROM transacciones 
+                     WHERE usuario_email = ? 
+                     AND tipo IN ('Gasto', 'Pago', 'Egreso')
+                     AND strftime('%m', fecha) BETWEEN ? AND ?
+                     AND strftime('%Y', fecha) = ?`,
+                    [usuarioEmail.toLowerCase(), trim.inicio, trim.fin, añoTrimestre.toString()]
+                );
+                datosTotal.push(Math.round(totalTrim?.total || 0));
+            }
+            resultado.push({ categoria: 'Total', datos: datosTotal });
+
+            // Obtener datos por cada categoría
+            for (const cat of categorias) {
+                const datosCategoria = [];
+                for (const trim of trimestres) {
+                    const totalCat = await database.getFirstAsync(
+                        `SELECT COALESCE(SUM(monto), 0) as total FROM transacciones 
+                         WHERE usuario_email = ? 
+                         AND categoria = ?
+                         AND tipo IN ('Gasto', 'Pago', 'Egreso')
+                         AND strftime('%m', fecha) BETWEEN ? AND ?
+                         AND strftime('%Y', fecha) = ?`,
+                        [usuarioEmail.toLowerCase(), cat.categoria, trim.inicio, trim.fin, añoTrimestre.toString()]
+                    );
+                    datosCategoria.push(Math.round(totalCat?.total || 0));
+                }
+                if (datosCategoria.some(d => d > 0)) {
+                    resultado.push({ categoria: cat.categoria, datos: datosCategoria });
+                }
+            }
+        } else if (tipoTiempo === 'Anual') {
+            // 5 años terminando en el año seleccionado
+            const añoFin = rangoData?.añoFin || año;
+            const años = [];
+            for (let i = 4; i >= 0; i--) {
+                años.push((añoFin - i).toString());
+            }
+
+            // Obtener total general por año
+            const datosTotal = [];
+            for (const añoData of años) {
+                const totalAño = await database.getFirstAsync(
+                    `SELECT COALESCE(SUM(monto), 0) as total FROM transacciones 
+                     WHERE usuario_email = ? 
+                     AND tipo IN ('Gasto', 'Pago', 'Egreso')
+                     AND strftime('%Y', fecha) = ?`,
+                    [usuarioEmail.toLowerCase(), añoData]
+                );
+                datosTotal.push(Math.round(totalAño?.total || 0));
+            }
+            resultado.push({ categoria: 'Total', datos: datosTotal });
+
+            // Obtener datos por cada categoría
+            for (const cat of categorias) {
+                const datosCategoria = [];
+                for (const añoData of años) {
+                    const totalCat = await database.getFirstAsync(
+                        `SELECT COALESCE(SUM(monto), 0) as total FROM transacciones 
+                         WHERE usuario_email = ? 
+                         AND categoria = ?
+                         AND tipo IN ('Gasto', 'Pago', 'Egreso')
+                         AND strftime('%Y', fecha) = ?`,
+                        [usuarioEmail.toLowerCase(), cat.categoria, añoData]
+                    );
+                    datosCategoria.push(Math.round(totalCat?.total || 0));
+                }
+                if (datosCategoria.some(d => d > 0)) {
+                    resultado.push({ categoria: cat.categoria, datos: datosCategoria });
+                }
+            }
+        }
+
+        return resultado;
+    } catch (error) {
+        return [];
+    }
+};
+
+// Función para obtener transacciones del mes actual (mejorada para diciembre)
+export const obtenerTransaccionesDelMesActual = async (usuarioEmail) => {
+    try {
+        const database = await getDB();
+        const now = new Date();
+        // Usar diciembre (12) como mes predeterminado
+        const mes = '12';
+        const año = now.getFullYear().toString();
+
+        const result = await database.getAllAsync(
+            `SELECT * FROM transacciones 
+             WHERE usuario_email = ? 
+             AND strftime('%m', fecha) = ? 
+             AND strftime('%Y', fecha) = ?
+             ORDER BY fecha DESC`,
+            [usuarioEmail.toLowerCase(), mes, año]
+        );
+        return result || [];
+    } catch (error) {
+        return [];
     }
 };
 
@@ -581,7 +741,6 @@ export const guardarPresupuesto = async (presupuesto, usuarioEmail) => {
         );
         return { success: true, id: result.lastInsertRowId };
     } catch (error) {
-        console.error('Error al guardar presupuesto:', error);
         return { success: false };
     }
 };
@@ -595,7 +754,6 @@ export const obtenerPresupuestos = async (usuarioEmail) => {
         );
         return result || [];
     } catch (error) {
-        console.error('Error al obtener presupuestos:', error);
         return [];
     }
 };
@@ -609,7 +767,6 @@ export const obtenerPresupuestosPorMes = async (usuarioEmail, mes, año) => {
         );
         return result || [];
     } catch (error) {
-        console.error('Error al obtener presupuestos del mes:', error);
         return [];
     }
 };
@@ -629,7 +786,6 @@ export const actualizarPresupuesto = async (id, presupuesto) => {
         );
         return { success: true };
     } catch (error) {
-        console.error('Error al actualizar presupuesto:', error);
         return { success: false };
     }
 };
@@ -640,7 +796,6 @@ export const eliminarPresupuesto = async (id) => {
         await database.runAsync('DELETE FROM presupuestos WHERE id = ?', [id]);
         return { success: true };
     } catch (error) {
-        console.error('Error al eliminar presupuesto:', error);
         return { success: false };
     }
 };
@@ -654,7 +809,6 @@ export const obtenerPresupuestoPorCategoria = async (usuarioEmail, categoria, me
         );
         return result;
     } catch (error) {
-        console.error('Error al obtener presupuesto por categoría:', error);
         return null;
     }
 };
@@ -663,14 +817,19 @@ export const obtenerPresupuestoPorCategoria = async (usuarioEmail, categoria, me
 export const verificarPresupuestoExcedido = async (usuarioEmail, categoria, mes, año) => {
     try {
         const presupuesto = await obtenerPresupuestoPorCategoria(usuarioEmail, categoria, mes, año);
-        if (!presupuesto) return { excedido: false };
+
+        if (!presupuesto) {
+            return { excedido: false };
+        }
 
         const database = await getDB();
+        const mesPadded = mes.padStart(2, '0');
+
         const gastosCategoria = await database.getFirstAsync(
             `SELECT SUM(monto) as total FROM transacciones 
        WHERE usuario_email = ? AND categoria = ? AND tipo IN ('Gasto', 'Pago')
        AND strftime('%m', fecha) = ? AND strftime('%Y', fecha) = ?`,
-            [usuarioEmail.toLowerCase(), categoria, mes.padStart(2, '0'), año]
+            [usuarioEmail.toLowerCase(), categoria, mesPadded, año]
         );
 
         const totalGastado = gastosCategoria?.total || 0;
@@ -683,7 +842,6 @@ export const verificarPresupuestoExcedido = async (usuarioEmail, categoria, mes,
             diferencia: totalGastado - presupuesto.monto_limite
         };
     } catch (error) {
-        console.error('Error al verificar presupuesto:', error);
         return { excedido: false };
     }
 };
@@ -697,7 +855,6 @@ export const obtenerPresupuestosPorCategoria = async (usuarioEmail, categoria) =
         );
         return result || [];
     } catch (error) {
-        console.error('Error al obtener presupuestos por categoría:', error);
         return [];
     }
 };
@@ -707,17 +864,13 @@ export const obtenerPresupuestosPorCategoria = async (usuarioEmail, categoria) =
 // Obtener cuentas de usuario desde la base de datos
 export const obtenerCuentasUsuario = async (usuarioEmail) => {
     try {
-        console.log('🔍 Buscando cuentas para:', usuarioEmail);
         const database = await getDB();
         const result = await database.getAllAsync(
             'SELECT * FROM cuentas WHERE usuario_email = ? ORDER BY fecha_creacion DESC',
             [usuarioEmail.toLowerCase()]
         );
-        console.log('📊 Cuentas encontradas:', result?.length || 0);
-        console.log('📝 Datos:', result);
         return result || [];
     } catch (error) {
-        console.error('❌ Error al obtener cuentas del usuario:', error);
         return [];
     }
 };
@@ -725,9 +878,6 @@ export const obtenerCuentasUsuario = async (usuarioEmail) => {
 // Guardar una nueva cuenta
 export const guardarCuenta = async (cuenta, usuarioEmail) => {
     try {
-        console.log('💾 Guardando cuenta en DB...');
-        console.log('   Usuario:', usuarioEmail);
-        console.log('   Cuenta:', cuenta);
         const database = await getDB();
         const result = await database.runAsync(
             `INSERT INTO cuentas (usuario_email, nombre, tipo, saldo, icono, presupuesto, gastado) 
@@ -742,10 +892,8 @@ export const guardarCuenta = async (cuenta, usuarioEmail) => {
                 parseFloat(cuenta.gastado) || 0
             ]
         );
-        console.log('✅ Cuenta guardada con ID:', result.lastInsertRowId);
         return { success: true, id: result.lastInsertRowId };
     } catch (error) {
-        console.error('Error al guardar cuenta:', error);
         return { success: false };
     }
 };
@@ -770,7 +918,6 @@ export const actualizarCuenta = async (id, cuenta) => {
         );
         return { success: true };
     } catch (error) {
-        console.error('Error al actualizar cuenta:', error);
         return { success: false };
     }
 };
@@ -782,7 +929,6 @@ export const eliminarCuenta = async (id) => {
         await database.runAsync('DELETE FROM cuentas WHERE id = ?', [id]);
         return { success: true };
     } catch (error) {
-        console.error('Error al eliminar cuenta:', error);
         return { success: false };
     }
 };
@@ -797,7 +943,6 @@ export const actualizarSaldoCuenta = async (id, nuevoSaldo) => {
         );
         return { success: true };
     } catch (error) {
-        console.error('Error al actualizar saldo:', error);
         return { success: false };
     }
 };
@@ -812,8 +957,96 @@ export const actualizarGastoCuenta = async (id, nuevoGasto) => {
         );
         return { success: true };
     } catch (error) {
-        console.error('Error al actualizar gasto:', error);
         return { success: false };
+    }
+};
+
+// Realizar transferencia entre cuentas
+export const realizarTransferencia = async (transferencia, usuarioEmail) => {
+    try {
+        if (!usuarioEmail) {
+            throw new Error('No hay usuario activo');
+        }
+
+        const database = await getDB();
+        if (!database) {
+            throw new Error('Base de datos no inicializada');
+        }
+
+        const { monto, cuentaOrigen, cuentaDestino, descripcion, fecha_transaccion, notas } = transferencia;
+
+        // Validar que las cuentas sean diferentes
+        if (cuentaOrigen === cuentaDestino) {
+            return { success: false, error: 'La cuenta origen y destino deben ser diferentes' };
+        }
+
+        // Obtener cuenta origen
+        const cuentaOrigenData = await database.getFirstAsync(
+            'SELECT * FROM cuentas WHERE nombre = ? AND usuario_email = ?',
+            [cuentaOrigen, usuarioEmail.toLowerCase()]
+        );
+
+        if (!cuentaOrigenData) {
+            return { success: false, error: 'Cuenta origen no encontrada' };
+        }
+
+        // Verificar saldo suficiente
+        if (parseFloat(cuentaOrigenData.saldo) < parseFloat(monto)) {
+            return { success: false, error: 'Saldo insuficiente en la cuenta origen' };
+        }
+
+        // Obtener cuenta destino
+        const cuentaDestinoData = await database.getFirstAsync(
+            'SELECT * FROM cuentas WHERE nombre = ? AND usuario_email = ?',
+            [cuentaDestino, usuarioEmail.toLowerCase()]
+        );
+
+        if (!cuentaDestinoData) {
+            return { success: false, error: 'Cuenta destino no encontrada' };
+        }
+
+        // Calcular nuevos saldos
+        const nuevoSaldoOrigen = parseFloat(cuentaOrigenData.saldo) - parseFloat(monto);
+        const nuevoSaldoDestino = parseFloat(cuentaDestinoData.saldo) + parseFloat(monto);
+
+        // Actualizar saldo de cuenta origen (restar)
+        await database.runAsync(
+            'UPDATE cuentas SET saldo = ? WHERE id = ?',
+            [nuevoSaldoOrigen, cuentaOrigenData.id]
+        );
+
+        // Actualizar saldo de cuenta destino (sumar)
+        await database.runAsync(
+            'UPDATE cuentas SET saldo = ? WHERE id = ?',
+            [nuevoSaldoDestino, cuentaDestinoData.id]
+        );
+
+        // Guardar la transacción de transferencia
+        const result = await database.runAsync(
+            `INSERT INTO transacciones (usuario_email, tipo, monto, categoria, descripcion, fecha_transaccion, fecha_pago, cuenta, notas, fecha) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                usuarioEmail.toLowerCase(),
+                'Transferencia',
+                parseFloat(monto),
+                'Transferencia',
+                descripcion || `Transferencia de ${cuentaOrigen} a ${cuentaDestino}`,
+                fecha_transaccion,
+                fecha_transaccion,
+                `${cuentaOrigen} → ${cuentaDestino}`,
+                notas || '',
+                fecha_transaccion
+            ]
+        );
+
+        return {
+            success: true,
+            id: result.lastInsertRowId,
+            saldoOrigen: nuevoSaldoOrigen,
+            saldoDestino: nuevoSaldoDestino
+        };
+    } catch (error) {
+        return { success: false, error: error.message };
     }
 };
 

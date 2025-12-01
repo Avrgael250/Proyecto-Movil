@@ -1,13 +1,134 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Platform, StatusBar } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Platform, StatusBar, ActivityIndicator, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { PieChart } from 'react-native-chart-kit';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import * as NavigationBar from 'expo-navigation-bar';
 import BotonAgregarTransaccion from '../components/BotonAgregarTransaccion';
+import {
+  obtenerSesion,
+  obtenerTransaccionesDelMes,
+  obtenerTotalesPorMes,
+  obtenerCuentasUsuario,
+  obtenerResumenEgresos,
+  obtenerHistorialReciente
+} from '../database/database';
 
 export default function Inicio() {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
+
+  // Estados para datos en tiempo real
+  const [usuarioEmail, setUsuarioEmail] = useState(null);
+  const [balanceActual, setBalanceActual] = useState(0);
+  const [balanceProyectado, setBalanceProyectado] = useState(0);
+  const [gastoProyectado, setGastoProyectado] = useState(0);
+  const [gastoGeneral, setGastoGeneral] = useState(0);
+  const [cantidadTransacciones, setCantidadTransacciones] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [datosGrafica, setDatosGrafica] = useState([]);
+  const [historialReciente, setHistorialReciente] = useState([]);
+  const [datosGraficaPie, setDatosGraficaPie] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Cargar datos desde la base de datos
+  const cargarDatos = useCallback(async (mostrarRefresh = false) => {
+    try {
+      if (mostrarRefresh) {
+        setRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+
+      // Obtener sesión del usuario
+      const sesion = await obtenerSesion();
+      if (!sesion || !sesion.usuario_email) {
+        setIsLoading(false);
+        return;
+      }
+
+      const email = sesion.usuario_email;
+      setUsuarioEmail(email);
+
+      // Usar el mes actual
+      const now = new Date();
+      const mes = (now.getMonth() + 1).toString(); // Mes actual (1-12)
+      const anio = now.getFullYear().toString();
+
+      // 1. Obtener balance actual (suma de saldos de todas las cuentas)
+      const cuentas = await obtenerCuentasUsuario(email);
+      const totalBalance = cuentas.reduce((sum, cuenta) => sum + parseFloat(cuenta.saldo || 0), 0);
+      setBalanceActual(totalBalance);
+
+      // 2. Obtener totales del mes (ingresos y egresos)
+      const totales = await obtenerTotalesPorMes(email, mes, anio);
+      const ingresos = parseFloat(totales.ingresos || 0);
+      const egresos = parseFloat(totales.egresos || 0);
+
+      // 3. Calcular balance proyectado (balance actual + ingresos esperados - egresos esperados)
+      const balanceProyectadoCalc = totalBalance + ingresos - egresos;
+      setBalanceProyectado(balanceProyectadoCalc);
+
+      // 4. Gasto proyectado del mes
+      setGastoProyectado(egresos);
+
+      // 5. Obtener transacciones del mes
+      const transacciones = await obtenerTransaccionesDelMes(email, mes, anio);
+      const transaccionesEgreso = transacciones.filter(t =>
+        t.tipo === 'Gasto' || t.tipo === 'Pago' || t.tipo === 'Egreso'
+      );
+
+      // Total gastado este mes
+      const totalGastado = transaccionesEgreso.reduce((sum, t) => sum + parseFloat(t.monto || 0), 0);
+      setGastoGeneral(totalGastado);
+      setCantidadTransacciones(transaccionesEgreso.length);
+
+      // 6. Obtener datos para la gráfica de pastel (resumen por categoría)
+      const resumenEgresos = await obtenerResumenEgresos(email);
+      const datosGraficaFormateados = resumenEgresos.map(item => ({
+        categoria: item.categoria,
+        total: parseFloat(item.total || 0)
+      }));
+      setDatosGrafica(datosGraficaFormateados);
+
+      // Formatear datos para PieChart con colores
+      const coloresCategoria = {
+        'Comida': '#F4D03F',
+        'Transporte': '#5DADE2',
+        'Servicios': '#EC7063',
+        'Restaurantes': '#A569BD',
+        'Entretenimiento': '#48C9B0',
+        'Salud': '#F5B041',
+        'Educación': '#D98880',
+        'Ropa': '#5499C7',
+        'Otros': '#85C1E9',
+        'Sin categoría': '#A9CCE3',
+      };
+
+      const datosPieChart = datosGraficaFormateados
+        .filter(item => item.total > 0)
+        .slice(0, 5) // Mostrar top 5 categorías
+        .map((item, index) => ({
+          name: item.categoria,
+          population: item.total,
+          color: coloresCategoria[item.categoria] || '#99A3A4',
+          legendFontColor: '#7F7F7F',
+          legendFontSize: 12
+        }));
+
+      setDatosGraficaPie(datosPieChart);
+
+      // 7. Obtener historial de transacciones recientes
+      const historialDB = await obtenerHistorialReciente(email, 5);
+      setHistorialReciente(historialDB);
+
+    } catch (error) {
+      console.error('❌ Error al cargar datos en Inicio:', error);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     const hideSystemBars = async () => {
@@ -33,15 +154,34 @@ export default function Inicio() {
 
     if (isFocused) {
       hideSystemBars();
+      cargarDatos(); // Cargar datos cuando la pantalla está enfocada
     }
 
     return () => {
       showSystemBars();
     };
-  }, [isFocused]);
+  }, [isFocused, cargarDatos]);
 
   const irATransferencias = () => {
-    navigation.navigate('Tarjetas');
+    // Navegar a Gráficas con el tab de Historial de gasto seleccionado
+    navigation.navigate('Gráficas');
+  };
+
+  const irAGraficas = () => {
+    navigation.navigate('Gráficas');
+  };
+
+  const irAPresupuestos = () => {
+    navigation.navigate('Presupuesto');
+  };
+
+  const irACuentas = () => {
+    navigation.navigate('Cuentas');
+  };
+
+  // Handler para cuando se guarda una transacción
+  const handleTransaccionGuardada = () => {
+    cargarDatos(true); // Mostrar indicador de refresh
   };
 
   return (
@@ -54,6 +194,12 @@ export default function Inicio() {
           </View>
           <Text style={styles.topBarTitle}>Inicio</Text>
         </View>
+        <TouchableOpacity
+          style={styles.configButton}
+          onPress={() => navigation.navigate('Configuracion')}
+        >
+          <Ionicons name="settings-outline" size={24} color="#666" />
+        </TouchableOpacity>
       </View>
 
       {/* Título Principal */}
@@ -71,97 +217,223 @@ export default function Inicio() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Disponible para gastar</Text>
 
-          <View style={styles.cardContent}>
-            {/* Información financiera - Izquierda */}
-            <View style={styles.infoFinanciera}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Balance Actual</Text>
-                <Text style={styles.infoValue}>$0.00</Text>
-              </View>
-
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Balance Proyectado</Text>
-                <Text style={styles.infoValue}>$0.00</Text>
-              </View>
-
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Gasto Proyectado</Text>
-                <Text style={styles.infoValue}>$0.00</Text>
-              </View>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#4A8FE7" />
+              <Text style={styles.loadingText}>Cargando datos...</Text>
             </View>
-
-            {/* Gráfico visual - Derecha */}
-            <View style={styles.graficoContainer}>
-              <View style={styles.grafico}>
-                {/* Representación simple de gráfico de pastel */}
-                <View style={styles.pieChart}>
-                  <View style={[styles.pieSlice, styles.pieYellow]} />
-                  <View style={[styles.pieSlice, styles.pieBlue]} />
-                  <View style={[styles.pieSlice, styles.pieOrange]} />
-                  <View style={[styles.pieSlice, styles.pieRed]} />
+          ) : (
+            <View style={styles.cardContent}>
+              {/* Información financiera - Izquierda */}
+              <View style={styles.infoFinanciera}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Balance Actual</Text>
+                  <Text style={[styles.infoValue, balanceActual < 0 && styles.negativeValue]}>
+                    ${balanceActual.toFixed(2)}
+                  </Text>
                 </View>
-                {/* Pequeño icono de barras encima del pastel */}
-                <View style={styles.barChartIcon}>
-                  <View style={[styles.bar, styles.barBlue]} />
-                  <View style={[styles.bar, styles.barYellow]} />
-                  <View style={[styles.bar, styles.barRed]} />
+
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Balance Proyectado</Text>
+                  <Text style={[styles.infoValue, balanceProyectado < 0 && styles.negativeValue]}>
+                    ${balanceProyectado.toFixed(2)}
+                  </Text>
+                </View>
+
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Gasto Proyectado</Text>
+                  <Text style={styles.infoValue}>${gastoProyectado.toFixed(2)}</Text>
                 </View>
               </View>
-            </View>
-          </View>
 
-          {/* Botón "Este mes" - Sin funcionalidad */}
+              {/* Gráfico visual - Derecha (clickeable) - GRÁFICA REAL */}
+              <TouchableOpacity
+                style={styles.graficoContainer}
+                onPress={irAGraficas}
+                activeOpacity={0.8}
+              >
+                <View style={styles.grafico}>
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#4A8FE7" />
+                  ) : datosGraficaPie.length > 0 ? (
+                    <PieChart
+                      data={datosGraficaPie}
+                      width={140}
+                      height={100}
+                      chartConfig={{
+                        color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                      }}
+                      accessor="population"
+                      backgroundColor="transparent"
+                      paddingLeft="15"
+                      center={[10, 0]}
+                      absolute
+                      hasLegend={false}
+                    />
+                  ) : (
+                    <View style={styles.noDataContainer}>
+                      <Ionicons name="pie-chart-outline" size={40} color="#CCC" />
+                      <Text style={styles.noDataText}>Sin gastos</Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Leyenda de la gráfica */}
+          {!isLoading && datosGraficaPie.length > 0 && (
+            <View style={styles.leyendaContainer}>
+              {datosGraficaPie.slice(0, 3).map((item, index) => (
+                <View key={index} style={styles.leyendaItem}>
+                  <View style={[styles.leyendaColor, { backgroundColor: item.color }]} />
+                  <Text style={styles.leyendaTexto} numberOfLines={1}>
+                    {item.name}: ${item.population.toFixed(0)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Botón "Este mes" - Navega a Presupuestos */}
           <TouchableOpacity
             style={styles.botonEsteMes}
+            onPress={irAGraficas}
           >
-            <Text style={styles.botonEsteMesTexto}>Este mes</Text>
+            <Text style={styles.botonEsteMesTexto}>Ver gráficas completas</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Sección: Este mes */}
+        {/* Sección: Este mes (Diciembre) */}
         <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>Este mes</Text>
+          <Text style={styles.seccionTitulo}>Diciembre {new Date().getFullYear()}</Text>
 
-          {/* Card de gastos */}
-          <View style={styles.card}>
+          {/* Card de gastos con datos reales */}
+          <TouchableOpacity
+            style={styles.card}
+            onPress={irAPresupuestos}
+          >
             <View style={styles.gastoItem}>
-              <View style={styles.iconoGasto}>
-                <Ionicons name="storefront-outline" size={24} color="#030213" />
+              <View style={[styles.iconoGasto, { backgroundColor: '#E3F2FD' }]}>
+                <Ionicons name="wallet-outline" size={24} color="#4A8FE7" />
               </View>
               <View style={styles.gastoInfo}>
-                <Text style={styles.gastoGeneral}>Gasto General: $0</Text>
-                <Text style={styles.gastoPrincipales}>Gasto principales</Text>
-                <Text style={styles.sinEntradas}>Sin entradas aún</Text>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#4A8FE7" />
+                ) : (
+                  <>
+                    <Text style={styles.gastoGeneral}>Gasto General: ${gastoGeneral.toFixed(2)}</Text>
+                    <Text style={styles.gastoPrincipales}>Gastos del mes</Text>
+                    <Text style={styles.sinEntradas}>
+                      {cantidadTransacciones > 0
+                        ? `${cantidadTransacciones} transacciones en diciembre`
+                        : 'Sin gastos registrados aún'}
+                    </Text>
+                  </>
+                )}
+              </View>
+              <View style={styles.arrowContainer}>
+                <Ionicons name="chevron-forward" size={20} color="#717182" />
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        {/* Sección: Próximo */}
+        {/* Sección: Historial */}
         <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>Próximo</Text>
+          <Text style={styles.seccionTitulo}>Historial</Text>
 
-          <View style={styles.proximoContainer}>
-            {/* Círculo grande azul con checkmark */}
-            <View style={styles.circuloCheckmark}>
-              <Ionicons name="checkmark" size={48} color="#030213" />
+          {isLoading ? (
+            <View style={styles.proximoContainer}>
+              <ActivityIndicator size="large" color="#4A8FE7" />
             </View>
-            <Text style={styles.proximoTexto}>¡Todo pagado!</Text>
-          </View>
+          ) : historialReciente.length > 0 ? (
+            <View style={styles.card}>
+              {historialReciente.map((transaccion, index) => {
+                const fechaTransaccion = new Date(transaccion.fecha);
+                const esIngreso = transaccion.tipo === 'Ingreso' || transaccion.tipo === 'Reembolso';
+                const iconoCategoria = {
+                  'Comida': 'fast-food-outline',
+                  'Transporte': 'car-outline',
+                  'Servicios': 'build-outline',
+                  'Restaurantes': 'restaurant-outline',
+                  'Entretenimiento': 'game-controller-outline',
+                  'Salud': 'medical-outline',
+                  'Educación': 'school-outline',
+                  'Ropa': 'shirt-outline',
+                  'Ingreso': 'trending-up-outline',
+                  'Reembolso': 'return-down-back-outline',
+                };
+
+                return (
+                  <View key={transaccion.id || index} style={[
+                    styles.proximoPagoItem,
+                    index === historialReciente.length - 1 && { borderBottomWidth: 0 }
+                  ]}>
+                    <View style={[
+                      styles.iconoGasto,
+                      { backgroundColor: esIngreso ? '#E8F5E9' : '#FFEBEE' }
+                    ]}>
+                      <Ionicons
+                        name={iconoCategoria[transaccion.categoria] || iconoCategoria[transaccion.tipo] || 'cash-outline'}
+                        size={24}
+                        color={esIngreso ? '#4CAF50' : '#F44336'}
+                      />
+                    </View>
+                    <View style={styles.gastoInfo}>
+                      <Text style={styles.gastoGeneral}>
+                        {transaccion.descripcion || transaccion.categoria || transaccion.tipo}
+                      </Text>
+                      <Text style={[styles.gastoPrincipales, {
+                        color: esIngreso ? '#4CAF50' : '#F44336',
+                        fontWeight: '600'
+                      }]}>
+                        {esIngreso ? '+' : '-'}${parseFloat(transaccion.monto).toFixed(2)}
+                      </Text>
+                      <Text style={styles.sinEntradas}>
+                        {fechaTransaccion.toLocaleDateString('es-ES', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={styles.proximoContainer}>
+              <View style={styles.circuloCheckmark}>
+                <Ionicons name="receipt-outline" size={48} color="#717182" />
+              </View>
+              <Text style={styles.proximoTexto}>Sin transacciones recientes</Text>
+            </View>
+          )}
         </View>
 
-        {/* BOTÓN DE TRANSFERENCIAS ADICIONAL */}
+        {/* BOTÓN DE HISTORIAL DE GASTOS */}
         <TouchableOpacity
           style={styles.botonTransferencias}
           onPress={irATransferencias}
         >
-          <Ionicons name="swap-horizontal" size={24} color="#FFFFFF" />
-          <Text style={styles.botonTransferenciasTexto}>💳 Mis Transacciones</Text>
+          <Ionicons name="bar-chart-outline" size={24} color="#FFFFFF" />
+          <Text style={styles.botonTransferenciasTexto}>Ver Historial de Gastos</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Botón Flotante (FAB) funcional */}
-      <BotonAgregarTransaccion />
+      {/* Botón Flotante (FAB) funcional - recarga datos al guardar */}
+      <BotonAgregarTransaccion onTransaccionGuardada={handleTransaccionGuardada} />
+
+      {/* Indicador de actualización */}
+      {refreshing && (
+        <View style={styles.refreshIndicator}>
+          <View style={styles.refreshBadge}>
+            <ActivityIndicator size="small" color="#fff" />
+            <Text style={styles.refreshText}>Actualizando...</Text>
+          </View>
+        </View>
+      )}
 
     </SafeAreaView>
   );
@@ -177,11 +449,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#E3F2FD',
     paddingHorizontal: 20,
     paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   topBarContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  configButton: {
+    padding: 4,
   },
   topBarIcon: {
     width: 12,
@@ -257,85 +535,64 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#030213',
   },
+  negativeValue: {
+    color: '#F44336',
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#717182',
+  },
   // Gráfico
   graficoContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 8,
   },
   grafico: {
-    width: 100,
+    width: 140,
     height: 100,
-    position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  pieChart: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    position: 'relative',
     overflow: 'hidden',
   },
-  pieSlice: {
-    position: 'absolute',
-  },
-  pieYellow: {
-    top: 0,
-    left: 0,
-    width: '50%',
-    height: '50%',
-    backgroundColor: '#F4D03F',
-    borderTopLeftRadius: 40,
-  },
-  pieBlue: {
-    top: 0,
-    right: 0,
-    width: '50%',
-    height: '50%',
-    backgroundColor: '#5DADE2',
-    borderTopRightRadius: 40,
-  },
-  pieOrange: {
-    bottom: 0,
-    left: 0,
-    width: '50%',
-    height: '50%',
-    backgroundColor: '#EC7063',
-    borderBottomLeftRadius: 40,
-  },
-  pieRed: {
-    bottom: 0,
-    right: 0,
-    width: '50%',
-    height: '50%',
-    backgroundColor: '#EC7063',
-    borderBottomRightRadius: 40,
-  },
-  barChartIcon: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+  noDataContainer: {
     justifyContent: 'center',
-    gap: 4,
-    bottom: 8,
-    width: 40,
-    height: 20,
+    alignItems: 'center',
+    gap: 8,
   },
-  bar: {
-    width: 8,
-    borderRadius: 2,
+  noDataText: {
+    fontSize: 12,
+    color: '#999',
   },
-  barBlue: {
-    height: 14,
-    backgroundColor: '#5DADE2',
+  // Leyenda de la gráfica
+  leyendaContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 12,
+    paddingHorizontal: 8,
   },
-  barYellow: {
-    height: 20,
-    backgroundColor: '#F4D03F',
+  leyendaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  barRed: {
+  leyendaColor: {
+    width: 12,
     height: 12,
-    backgroundColor: '#EC7063',
+    borderRadius: 6,
+  },
+  leyendaTexto: {
+    fontSize: 12,
+    color: '#717182',
+    fontWeight: '500',
   },
   // Botón "Este mes" - El botón funcional del medio
   botonEsteMes: {
@@ -369,14 +626,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   iconoGasto: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F3F4F6',
   },
   gastoInfo: {
     flex: 1,
     gap: 4,
+  },
+  arrowContainer: {
+    padding: 4,
   },
   gastoGeneral: {
     fontSize: 16,
@@ -411,6 +673,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#030213',
+  },
+  proximoPagoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  statusBadge: {
+    padding: 8,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   // Botón Flotante (FAB)
   fab: {
@@ -468,6 +746,32 @@ const styles = StyleSheet.create({
   botonTransferenciasTexto: {
     color: '#FFFFFF',
     fontSize: 18,
+    fontWeight: '600',
+  },
+  // Indicador de actualización
+  refreshIndicator: {
+    position: 'absolute',
+    top: 80,
+    alignSelf: 'center',
+    zIndex: 1000,
+  },
+  refreshBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4A8FE7',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  refreshText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
   },
 });

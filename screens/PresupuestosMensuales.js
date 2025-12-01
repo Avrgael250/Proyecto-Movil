@@ -5,6 +5,7 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 import * as NavigationBar from 'expo-navigation-bar';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import BotonAgregarTransaccion from '../components/BotonAgregarTransaccion';
+import { obtenerColorCategoria, obtenerColorPastelCategoria, obtenerCategoria } from '../constants/categories';
 import {
     guardarPresupuesto,
     obtenerPresupuestosPorMes,
@@ -14,16 +15,21 @@ import {
     obtenerSesion,
     obtenerTransaccionesDelMes,
     actualizarTransaccion,
-    eliminarTransaccion
+    eliminarTransaccion,
+    obtenerCuentasUsuario
 } from '../database/database';
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+// Lista de categorías disponibles
+const CATEGORIAS_LISTA = ['Comida', 'Transporte', 'Servicios', 'Entretenimiento', 'Salud', 'Educación', 'Otros'];
 
 export default function PresupuestosMensuales() {
     const navigation = useNavigation();
     const isFocused = useIsFocused();
 
-    const [mesIndex, setMesIndex] = useState(new Date().getMonth());
+    // Diciembre como mes predeterminado (índice 11 = diciembre)
+    const [mesIndex, setMesIndex] = useState(11);
     const [anio, setAnio] = useState(new Date().getFullYear());
     const [presupuestos, setPresupuestos] = useState([]);
     const [transaccionesPorCategoria, setTransaccionesPorCategoria] = useState({});
@@ -47,9 +53,15 @@ export default function PresupuestosMensuales() {
     const [fechaTransaccion, setFechaTransaccion] = useState(new Date());
     const [fechaPago, setFechaPago] = useState(new Date());
     const [cuenta, setCuenta] = useState('');
+    const [categoriaEdicion, setCategoriaEdicion] = useState('');
     const [notas, setNotas] = useState('');
     const [mostrarDatePicker, setMostrarDatePicker] = useState(false);
     const [tipoFecha, setTipoFecha] = useState('transaccion');
+
+    // Modales de selección
+    const [modalSeleccionCategoria, setModalSeleccionCategoria] = useState(false);
+    const [modalSeleccionCuenta, setModalSeleccionCuenta] = useState(false);
+    const [cuentasUsuario, setCuentasUsuario] = useState([]);
 
     useEffect(() => {
         const hideSystemBars = async () => {
@@ -88,12 +100,9 @@ export default function PresupuestosMensuales() {
                 const sesion = await obtenerSesion();
                 if (sesion) {
                     setUsuarioEmail(sesion.usuario_email);
-                    console.log('✅ Sesión cargada en Presupuestos:', sesion.usuario_email);
-                } else {
-                    console.log('⚠️ No hay sesión activa en Presupuestos');
                 }
             } catch (error) {
-                console.error('❌ Error al cargar sesión en Presupuestos:', error);
+                // Error silencioso
             }
         };
         cargarSesion();
@@ -108,21 +117,17 @@ export default function PresupuestosMensuales() {
     const cargarDatos = async () => {
         try {
             if (!usuarioEmail) {
-                console.log('⚠️ No hay usuario email para cargar datos');
                 return;
             }
 
             const mes = (mesIndex + 1).toString();
-            console.log('🔄 Cargando datos para:', usuarioEmail, 'mes:', mes, 'año:', anio);
 
             // Obtener presupuestos del mes
             const presupuestosDB = await obtenerPresupuestosPorMes(usuarioEmail, mes, anio.toString());
-            console.log('📊 Presupuestos obtenidos:', presupuestosDB?.length || 0);
             setPresupuestos(presupuestosDB || []);
 
             // Obtener transacciones del mes
             const transaccionesDB = await obtenerTransaccionesDelMes(usuarioEmail, mes, anio.toString());
-            console.log('💰 Transacciones obtenidas:', transaccionesDB?.length || 0);
 
             // Organizar transacciones y gastos por categoría
             const transPorCat = {};
@@ -140,11 +145,10 @@ export default function PresupuestosMensuales() {
                 }
             });
 
-            console.log('📊 Gastos por categoría:', gastosPorCat);
             setTransaccionesPorCategoria(transPorCat);
             setGastosPorCategoria(gastosPorCat);
         } catch (error) {
-            console.error('❌ Error al cargar datos en presupuestos:', error);
+            // Error silencioso
         }
     };
 
@@ -204,7 +208,6 @@ export default function PresupuestosMensuales() {
                     año: anio.toString()
                 };
                 await actualizarPresupuesto(presupuestoCat.id, presupuestoActualizado);
-                console.log('✅ Presupuesto actualizado:', categoriaSeleccionada, montoLimite);
             } else {
                 // Crear nuevo presupuesto
                 const nuevoPresupuesto = {
@@ -214,7 +217,6 @@ export default function PresupuestosMensuales() {
                     año: anio.toString()
                 };
                 await guardarPresupuesto(nuevoPresupuesto, usuarioEmail);
-                console.log('✅ Presupuesto creado:', categoriaSeleccionada, montoLimite);
             }
 
             setModalEstablecerLimite(false);
@@ -222,7 +224,6 @@ export default function PresupuestosMensuales() {
             Alert.alert('Éxito', `Límite de $${montoLimite} establecido para ${categoriaSeleccionada}`);
             await cargarDatos();
         } catch (error) {
-            console.error('❌ Error al guardar presupuesto:', error);
             Alert.alert('Error', 'No se pudo guardar el presupuesto');
         }
     };
@@ -255,13 +256,11 @@ export default function PresupuestosMensuales() {
                             const presupuestoCat = presupuestos.find(p => p.categoria === categoriaSeleccionada);
                             if (presupuestoCat) {
                                 await eliminarPresupuesto(presupuestoCat.id);
-                                console.log('🗑️ Presupuesto eliminado:', categoriaSeleccionada);
                                 setModalDetalle(false);
                                 Alert.alert('Éxito', 'Presupuesto eliminado');
                                 await cargarDatos();
                             }
                         } catch (error) {
-                            console.error('❌ Error al eliminar presupuesto:', error);
                             Alert.alert('Error', 'No se pudo eliminar el presupuesto');
                         }
                     }
@@ -270,14 +269,26 @@ export default function PresupuestosMensuales() {
         );
     };
 
-    const abrirEdicionTransaccion = (transaccion) => {
+    const abrirEdicionTransaccion = async (transaccion) => {
         setTransaccionSeleccionada(transaccion);
         setMonto(transaccion.monto.toString());
         setDescripcion(transaccion.descripcion || 'Gasto');
         setFechaTransaccion(new Date(transaccion.fecha + 'T00:00:00'));
-        setFechaPago(new Date(transaccion.fecha + 'T00:00:00'));
-        setCuenta('Efectivo');
-        setNotas('');
+        setFechaPago(new Date(transaccion.fecha_pago ? transaccion.fecha_pago + 'T00:00:00' : transaccion.fecha + 'T00:00:00'));
+        setCuenta(transaccion.cuenta || 'Efectivo');
+        setCategoriaEdicion(transaccion.categoria || categoriaSeleccionada);
+        setNotas(transaccion.notas || '');
+
+        // Cargar cuentas del usuario
+        try {
+            if (usuarioEmail) {
+                const cuentasDb = await obtenerCuentasUsuario(usuarioEmail);
+                setCuentasUsuario(cuentasDb || []);
+            }
+        } catch (error) {
+            console.error('Error al cargar cuentas:', error);
+        }
+
         setModalEditar(true);
     };
 
@@ -287,9 +298,12 @@ export default function PresupuestosMensuales() {
         const transaccionActualizada = {
             tipo: transaccionSeleccionada.tipo,
             monto: parseFloat(monto),
-            categoria: transaccionSeleccionada.categoria,
+            categoria: categoriaEdicion,
             descripcion: descripcion,
-            fecha: fechaTransaccion.toISOString().split('T')[0]
+            fecha: fechaTransaccion.toISOString().split('T')[0],
+            fecha_pago: fechaPago.toISOString().split('T')[0],
+            cuenta: cuenta,
+            notas: notas
         };
 
         const resultado = await actualizarTransaccion(transaccionSeleccionada.id, transaccionActualizada);
@@ -359,6 +373,28 @@ export default function PresupuestosMensuales() {
     const totales = calcularTotales();
     const porcentajeGastado = totales.totalLimite > 0 ? Math.round((totales.totalGastado / totales.totalLimite) * 100) : 0;
 
+    // Calcular categorías que han excedido su presupuesto
+    const categoriasExcedidas = () => {
+        const excedidas = [];
+        Object.keys(gastosPorCategoria).forEach(cat => {
+            const presupuesto = presupuestos.find(p => p.categoria === cat);
+            if (presupuesto) {
+                const gastado = gastosPorCategoria[cat] || 0;
+                if (gastado > presupuesto.monto_limite) {
+                    excedidas.push({
+                        categoria: cat,
+                        limite: presupuesto.monto_limite,
+                        gastado: gastado,
+                        excedido: gastado - presupuesto.monto_limite
+                    });
+                }
+            }
+        });
+        return excedidas;
+    };
+
+    const listaExcedidas = categoriasExcedidas();
+
     // Helper para obtener datos de una categoría
     const obtenerDatosCategoria = (categoria) => {
         const presupuesto = presupuestos.find(p => p.categoria === categoria);
@@ -415,111 +451,77 @@ export default function PresupuestosMensuales() {
                     </View>
                 </View>
 
-                {/* Categorías de presupuesto */}
+                {/* Banner de Alerta - Presupuestos Excedidos */}
+                {listaExcedidas.length > 0 && (
+                    <View style={styles.alertaBanner}>
+                        <View style={styles.alertaIcono}>
+                            <Ionicons name="warning" size={24} color="#fff" />
+                        </View>
+                        <View style={styles.alertaContenido}>
+                            <Text style={styles.alertaTitulo}>
+                                ⚠️ {listaExcedidas.length === 1 ? '¡Presupuesto excedido!' : `¡${listaExcedidas.length} presupuestos excedidos!`}
+                            </Text>
+                            {listaExcedidas.map((item, index) => (
+                                <Text key={index} style={styles.alertaDetalle}>
+                                    • {item.categoria}: excedido por ${item.excedido.toFixed(2)}
+                                </Text>
+                            ))}
+                        </View>
+                        <TouchableOpacity
+                            style={styles.alertaCerrar}
+                            onPress={() => {
+                                Alert.alert(
+                                    '📊 Resumen de Presupuestos Excedidos',
+                                    listaExcedidas.map(item =>
+                                        `${item.categoria}:\n   Límite: $${item.limite.toFixed(2)}\n   Gastado: $${item.gastado.toFixed(2)}\n   Excedido: $${item.excedido.toFixed(2)}`
+                                    ).join('\n\n'),
+                                    [{ text: 'Entendido', style: 'default' }]
+                                );
+                            }}
+                        >
+                            <Ionicons name="chevron-forward" size={20} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Categorías de presupuesto solo si tienen gasto */}
                 <View style={styles.categories}>
-                    {/* Comida */}
-                    <TouchableOpacity
-                        style={styles.categoryItem}
-                        onPress={() => abrirDetalleCategoria('Comida')}
-                    >
-                        <View style={[styles.categoryIcon, { backgroundColor: '#E3F2FD' }]}>
-                            <Ionicons name="fast-food" size={24} color="#2196F3" />
-                        </View>
-                        <View style={styles.categoryInfo}>
-                            <View style={styles.categoryHeader}>
-                                <Text style={styles.categoryName}>Comida</Text>
-                                <Text style={styles.categoryAmount}>${obtenerDatosCategoria('Comida').gastado.toFixed(2)}</Text>
-                            </View>
-                            <View style={styles.categoryProgress}>
-                                <View style={[styles.progressBar, {
-                                    backgroundColor: obtenerDatosCategoria('Comida').porcentaje > 90 ? '#F44336' : '#2196F3',
-                                    width: `${obtenerDatosCategoria('Comida').porcentaje}%`
-                                }]} />
-                            </View>
-                            <Text style={styles.transactionCount}>
-                                {obtenerDatosCategoria('Comida').transacciones.length} transacciones
-                                {obtenerDatosCategoria('Comida').limite > 0 && ` • Límite: $${obtenerDatosCategoria('Comida').limite.toFixed(2)}`}
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    {/* Transporte */}
-                    <TouchableOpacity
-                        style={styles.categoryItem}
-                        onPress={() => abrirDetalleCategoria('Transporte')}
-                    >
-                        <View style={[styles.categoryIcon, { backgroundColor: '#FFF3E0' }]}>
-                            <Ionicons name="car" size={24} color="#FF9800" />
-                        </View>
-                        <View style={styles.categoryInfo}>
-                            <View style={styles.categoryHeader}>
-                                <Text style={styles.categoryName}>Transporte</Text>
-                                <Text style={styles.categoryAmount}>${obtenerDatosCategoria('Transporte').gastado.toFixed(2)}</Text>
-                            </View>
-                            <View style={styles.categoryProgress}>
-                                <View style={[styles.progressBar, {
-                                    backgroundColor: obtenerDatosCategoria('Transporte').porcentaje > 90 ? '#F44336' : '#FF9800',
-                                    width: `${obtenerDatosCategoria('Transporte').porcentaje}%`
-                                }]} />
-                            </View>
-                            <Text style={styles.transactionCount}>
-                                {obtenerDatosCategoria('Transporte').transacciones.length} transacciones
-                                {obtenerDatosCategoria('Transporte').limite > 0 && ` • Límite: $${obtenerDatosCategoria('Transporte').limite.toFixed(2)}`}
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    {/* Servicios */}
-                    <TouchableOpacity
-                        style={styles.categoryItem}
-                        onPress={() => abrirDetalleCategoria('Servicios')}
-                    >
-                        <View style={[styles.categoryIcon, { backgroundColor: '#F3E5F5' }]}>
-                            <Ionicons name="phone-portrait" size={24} color="#9C27B0" />
-                        </View>
-                        <View style={styles.categoryInfo}>
-                            <View style={styles.categoryHeader}>
-                                <Text style={styles.categoryName}>Servicios</Text>
-                                <Text style={styles.categoryAmount}>${obtenerDatosCategoria('Servicios').gastado.toFixed(2)}</Text>
-                            </View>
-                            <View style={styles.categoryProgress}>
-                                <View style={[styles.progressBar, {
-                                    backgroundColor: obtenerDatosCategoria('Servicios').porcentaje > 90 ? '#F44336' : '#9C27B0',
-                                    width: `${obtenerDatosCategoria('Servicios').porcentaje}%`
-                                }]} />
-                            </View>
-                            <Text style={styles.transactionCount}>
-                                {obtenerDatosCategoria('Servicios').transacciones.length} transacciones
-                                {obtenerDatosCategoria('Servicios').limite > 0 && ` • Límite: $${obtenerDatosCategoria('Servicios').limite.toFixed(2)}`}
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    {/* Otros */}
-                    <TouchableOpacity
-                        style={styles.categoryItem}
-                        onPress={() => abrirDetalleCategoria('Otros')}
-                    >
-                        <View style={[styles.categoryIcon, { backgroundColor: '#E8F5E9' }]}>
-                            <Ionicons name="ellipsis-horizontal" size={24} color="#4CAF50" />
-                        </View>
-                        <View style={styles.categoryInfo}>
-                            <View style={styles.categoryHeader}>
-                                <Text style={styles.categoryName}>Otros</Text>
-                                <Text style={styles.categoryAmount}>${obtenerDatosCategoria('Otros').gastado.toFixed(2)}</Text>
-                            </View>
-                            <View style={styles.categoryProgress}>
-                                <View style={[styles.progressBar, {
-                                    backgroundColor: obtenerDatosCategoria('Otros').porcentaje > 90 ? '#F44336' : '#4CAF50',
-                                    width: `${obtenerDatosCategoria('Otros').porcentaje}%`
-                                }]} />
-                            </View>
-                            <Text style={styles.transactionCount}>
-                                {obtenerDatosCategoria('Otros').transacciones.length} transacciones
-                                {obtenerDatosCategoria('Otros').limite > 0 && ` • Límite: $${obtenerDatosCategoria('Otros').limite.toFixed(2)}`}
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
+                    {Object.keys(gastosPorCategoria)
+                        .filter(cat => gastosPorCategoria[cat] > 0)
+                        .map(cat => (
+                            <TouchableOpacity
+                                key={cat}
+                                style={styles.categoryItem}
+                                onPress={() => abrirDetalleCategoria(cat)}
+                            >
+                                <View style={[styles.categoryIcon, {
+                                    backgroundColor: obtenerColorPastelCategoria(cat)
+                                }]}
+                                >
+                                    <Ionicons
+                                        name={obtenerCategoria(cat).icono || 'ellipsis-horizontal'}
+                                        size={24}
+                                        color={obtenerColorCategoria(cat)}
+                                    />
+                                </View>
+                                <View style={styles.categoryInfo}>
+                                    <View style={styles.categoryHeader}>
+                                        <Text style={styles.categoryName}>{cat}</Text>
+                                        <Text style={styles.categoryAmount}>${obtenerDatosCategoria(cat).gastado.toFixed(2)}</Text>
+                                    </View>
+                                    <View style={styles.categoryProgress}>
+                                        <View style={[styles.progressBar, {
+                                            backgroundColor: obtenerDatosCategoria(cat).porcentaje > 90 ? '#F44336' : obtenerColorCategoria(cat),
+                                            width: `${obtenerDatosCategoria(cat).porcentaje}%`
+                                        }]} />
+                                    </View>
+                                    <Text style={styles.transactionCount}>
+                                        {obtenerDatosCategoria(cat).transacciones.length} transacciones
+                                        {obtenerDatosCategoria(cat).limite > 0 && ` • Límite: $${obtenerDatosCategoria(cat).limite.toFixed(2)}`}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        ))}
                 </View>
 
                 {/* Modal de Detalle de Categoría (Primera Imagen) */}
@@ -731,27 +733,30 @@ export default function PresupuestosMensuales() {
                             </TouchableOpacity>
 
                             {/* Cuenta */}
-                            <View style={styles.modalSection}>
+                            <TouchableOpacity
+                                style={styles.modalSection}
+                                onPress={() => setModalSeleccionCuenta(true)}
+                            >
                                 <Text style={styles.modalLabel}>Cuenta</Text>
                                 <View style={styles.modalInputRow}>
                                     <Ionicons name="wallet-outline" size={20} color="#666" />
-                                    <TextInput
-                                        style={styles.modalInput}
-                                        value={cuenta}
-                                        onChangeText={setCuenta}
-                                        placeholder="Efectivo"
-                                    />
+                                    <Text style={styles.modalValue}>{cuenta || 'Seleccionar cuenta'}</Text>
+                                    <Ionicons name="chevron-forward" size={20} color="#999" />
                                 </View>
-                            </View>
+                            </TouchableOpacity>
 
                             {/* Categoría */}
-                            <View style={styles.modalSection}>
+                            <TouchableOpacity
+                                style={styles.modalSection}
+                                onPress={() => setModalSeleccionCategoria(true)}
+                            >
                                 <Text style={styles.modalLabel}>Categoría</Text>
                                 <View style={styles.modalInputRow}>
-                                    <Ionicons name="people" size={20} color="#666" />
-                                    <Text style={styles.modalValue}>{transaccionSeleccionada?.categoria || categoriaSeleccionada}</Text>
+                                    <Ionicons name="pricetag-outline" size={20} color="#666" />
+                                    <Text style={styles.modalValue}>{categoriaEdicion || 'Seleccionar categoría'}</Text>
+                                    <Ionicons name="chevron-forward" size={20} color="#999" />
                                 </View>
-                            </View>
+                            </TouchableOpacity>
 
                             {/* Notas */}
                             <View style={styles.modalSection}>
@@ -839,6 +844,122 @@ export default function PresupuestosMensuales() {
                         onChange={onChangeFecha}
                     />
                 )}
+
+                {/* Modal de Selección de Categoría */}
+                <Modal
+                    visible={modalSeleccionCategoria}
+                    animationType="slide"
+                    transparent={true}
+                    onRequestClose={() => setModalSeleccionCategoria(false)}
+                >
+                    <TouchableOpacity
+                        style={styles.modalOverlaySeleccion}
+                        activeOpacity={1}
+                        onPress={() => setModalSeleccionCategoria(false)}
+                    >
+                        <View style={styles.modalSeleccionContainer}>
+                            <TouchableOpacity activeOpacity={1}>
+                                <View style={styles.modalHandle} />
+                                <Text style={styles.modalSeleccionTitulo}>Seleccionar Categoría</Text>
+
+                                <ScrollView style={styles.listaSeleccion}>
+                                    {CATEGORIAS_LISTA.map((cat, index) => (
+                                        <View key={cat}>
+                                            <TouchableOpacity
+                                                style={styles.itemSeleccion}
+                                                onPress={() => {
+                                                    setCategoriaEdicion(cat);
+                                                    setModalSeleccionCategoria(false);
+                                                }}
+                                            >
+                                                <Text style={[
+                                                    styles.itemSeleccionTexto,
+                                                    cat === categoriaEdicion && { color: '#4A8FE7', fontWeight: 'bold' }
+                                                ]}>
+                                                    {cat}
+                                                </Text>
+                                                {cat === categoriaEdicion && (
+                                                    <Ionicons name="checkmark" size={24} color="#4A8FE7" />
+                                                )}
+                                            </TouchableOpacity>
+                                            {index < CATEGORIAS_LISTA.length - 1 && (
+                                                <View style={styles.separadorSeleccion} />
+                                            )}
+                                        </View>
+                                    ))}
+                                </ScrollView>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
+                </Modal>
+
+                {/* Modal de Selección de Cuenta */}
+                <Modal
+                    visible={modalSeleccionCuenta}
+                    animationType="slide"
+                    transparent={true}
+                    onRequestClose={() => setModalSeleccionCuenta(false)}
+                >
+                    <TouchableOpacity
+                        style={styles.modalOverlaySeleccion}
+                        activeOpacity={1}
+                        onPress={() => setModalSeleccionCuenta(false)}
+                    >
+                        <View style={styles.modalSeleccionContainer}>
+                            <TouchableOpacity activeOpacity={1}>
+                                <View style={styles.modalHandle} />
+                                <Text style={styles.modalSeleccionTitulo}>Seleccionar Cuenta</Text>
+
+                                <ScrollView style={styles.listaSeleccion}>
+                                    {cuentasUsuario.length === 0 ? (
+                                        <View style={styles.sinCuentas}>
+                                            <Ionicons name="wallet-outline" size={48} color="#CCC" />
+                                            <Text style={styles.sinCuentasTexto}>No hay cuentas registradas</Text>
+                                            <Text style={styles.sinCuentasSubtexto}>
+                                                Ve a la sección de Cuentas para agregar una
+                                            </Text>
+                                        </View>
+                                    ) : (
+                                        cuentasUsuario.map((cuentaItem, index) => (
+                                            <View key={cuentaItem.id}>
+                                                <TouchableOpacity
+                                                    style={styles.itemSeleccion}
+                                                    onPress={() => {
+                                                        setCuenta(cuentaItem.nombre);
+                                                        setModalSeleccionCuenta(false);
+                                                    }}
+                                                >
+                                                    <View style={styles.itemCuentaInfo}>
+                                                        <View style={styles.iconoCuenta}>
+                                                            <Ionicons name={cuentaItem.icono || 'wallet'} size={24} color="#4A8FE7" />
+                                                        </View>
+                                                        <View>
+                                                            <Text style={[
+                                                                styles.itemSeleccionTexto,
+                                                                cuentaItem.nombre === cuenta && { color: '#4A8FE7', fontWeight: 'bold' }
+                                                            ]}>
+                                                                {cuentaItem.nombre}
+                                                            </Text>
+                                                            <Text style={styles.saldoCuenta}>
+                                                                Saldo: ${cuentaItem.saldo?.toFixed(2) || '0.00'}
+                                                            </Text>
+                                                        </View>
+                                                    </View>
+                                                    {cuentaItem.nombre === cuenta && (
+                                                        <Ionicons name="checkmark" size={24} color="#4A8FE7" />
+                                                    )}
+                                                </TouchableOpacity>
+                                                {index < cuentasUsuario.length - 1 && (
+                                                    <View style={styles.separadorSeleccion} />
+                                                )}
+                                            </View>
+                                        ))
+                                    )}
+                                </ScrollView>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
+                </Modal>
             </ScrollView>
 
             {/* Botón Flotante (FAB) funcional */}
@@ -1364,6 +1485,131 @@ const styles = StyleSheet.create({
         fontSize: 16,
         textAlign: 'center',
         fontWeight: '600',
+    },
+    // Estilos para modales de selección de categoría y cuenta
+    modalOverlaySeleccion: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalSeleccionContainer: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: 20,
+        maxHeight: '70%',
+    },
+    modalHandle: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#DDD',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginTop: 12,
+        marginBottom: 20,
+    },
+    modalSeleccionTitulo: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#000',
+        paddingHorizontal: 20,
+        marginBottom: 20,
+    },
+    listaSeleccion: {
+        maxHeight: 400,
+    },
+    itemSeleccion: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+    },
+    itemSeleccionTexto: {
+        fontSize: 16,
+        color: '#000',
+    },
+    separadorSeleccion: {
+        height: 1,
+        backgroundColor: '#F0F0F0',
+        marginHorizontal: 20,
+    },
+    itemCuentaInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    iconoCuenta: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#E3F2FD',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    saldoCuenta: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 2,
+    },
+    sinCuentas: {
+        alignItems: 'center',
+        paddingVertical: 40,
+        paddingHorizontal: 20,
+    },
+    sinCuentasTexto: {
+        fontSize: 16,
+        color: '#666',
+        marginTop: 12,
+        fontWeight: '500',
+    },
+    sinCuentasSubtexto: {
+        fontSize: 14,
+        color: '#999',
+        marginTop: 4,
+        textAlign: 'center',
+    },
+    // Estilos para el banner de alerta de presupuesto excedido
+    alertaBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#EF4444',
+        marginHorizontal: 16,
+        marginBottom: 16,
+        padding: 12,
+        borderRadius: 12,
+        shadowColor: '#EF4444',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    alertaIcono: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    alertaContenido: {
+        flex: 1,
+    },
+    alertaTitulo: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#fff',
+        marginBottom: 4,
+    },
+    alertaDetalle: {
+        fontSize: 12,
+        color: 'rgba(255, 255, 255, 0.9)',
+        marginTop: 2,
+    },
+    alertaCerrar: {
+        padding: 8,
     },
 });
 

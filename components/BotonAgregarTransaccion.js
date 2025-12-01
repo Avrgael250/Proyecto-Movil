@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ScrollView, Alert, PanResponder, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useNavigation } from '@react-navigation/native';
 import {
     guardarTransaccion,
     obtenerSesion,
     obtenerCuentasUsuario,
-    obtenerCategorias
+    obtenerCategorias,
+    verificarPresupuestoExcedido,
+    realizarTransferencia
 } from '../database/database';
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -14,6 +17,9 @@ const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'O
 const CATEGORIAS_LISTA = ['Comida', 'Transporte', 'Servicios', 'Otros'];
 
 const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
+    // Hook de navegación para poder navegar a otras pantallas
+    const navigation = useNavigation();
+
     // Modal de selección de tipo
     const [modalTipos, setModalTipos] = useState(false);
 
@@ -26,6 +32,10 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
 
     // NUEVO: Modal de selección de cuentas
     const [modalCuentas, setModalCuentas] = useState(false);
+
+    // NUEVO: Para transferencias - cuenta destino
+    const [modalCuentasDestino, setModalCuentasDestino] = useState(false);
+    const [cuentaDestino, setCuentaDestino] = useState('');
 
     // Campos del formulario
     const [monto, setMonto] = useState('');
@@ -53,17 +63,13 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
     const cargarDatosIniciales = async () => {
         try {
             const sesion = await obtenerSesion();
-            console.log('📧 Sesión obtenida:', sesion);
             if (sesion) {
                 // CORRECCIÓN: Se usa 'usuario_email' en la DB, no 'email'
                 setUsuarioEmail(sesion.usuario_email);
                 const cuentasDb = await obtenerCuentasUsuario(sesion.usuario_email);
-                console.log('💳 Cuentas cargadas:', cuentasDb);
                 const categoriasDb = await obtenerCategorias();
                 setCuentas(cuentasDb || []);
                 setCategorias(categoriasDb || []);
-            } else {
-                console.log('⚠️ No hay sesión activa');
             }
         } catch (error) {
             console.error('❌ Error al cargar datos iniciales:', error);
@@ -135,14 +141,12 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
         // Recargar cuentas cada vez que se abre el modal
         try {
             const sesion = await obtenerSesion();
-            console.log('🔄 Recargando cuentas - Sesión:', sesion);
             if (sesion) {
                 const cuentasDb = await obtenerCuentasUsuario(sesion.usuario_email);
-                console.log('💳 Cuentas recargadas:', cuentasDb);
                 setCuentas(cuentasDb || []);
             }
         } catch (error) {
-            console.error('❌ Error al recargar cuentas:', error);
+            console.error('Error al recargar cuentas:', error);
         }
         setModalCuentas(true);
     };
@@ -155,6 +159,29 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
         setCuenta(cuentaNombre);
         cerrarModalCuentas();
     };
+
+    // NUEVOS HANDLERS PARA CUENTA DESTINO (Transferencias)
+    const abrirModalCuentasDestino = async () => {
+        try {
+            const sesion = await obtenerSesion();
+            if (sesion) {
+                const cuentasDb = await obtenerCuentasUsuario(sesion.usuario_email);
+                setCuentas(cuentasDb || []);
+            }
+        } catch (error) {
+            console.error('Error al recargar cuentas:', error);
+        }
+        setModalCuentasDestino(true);
+    };
+
+    const cerrarModalCuentasDestino = () => {
+        setModalCuentasDestino(false);
+    };
+
+    const seleccionarCuentaDestino = (cuentaNombre) => {
+        setCuentaDestino(cuentaNombre);
+        cerrarModalCuentasDestino();
+    };
     // FIN NUEVOS HANDLERS
 
     const resetearFormulario = () => {
@@ -164,6 +191,7 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
         setCuenta('');
         setCategoria('');
         setNotas('');
+        setCuentaDestino(''); // Resetear cuenta destino para transferencias
     };
 
     const onChangeFecha = (event, selectedDate) => {
@@ -189,6 +217,57 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
             return;
         }
 
+        // Validaciones especiales para transferencias
+        if (tipoTransaccion === 'Transferencia') {
+            if (!cuenta) {
+                Alert.alert('Error', 'Selecciona la cuenta origen');
+                return;
+            }
+            if (!cuentaDestino) {
+                Alert.alert('Error', 'Selecciona la cuenta destino');
+                return;
+            }
+            if (cuenta === cuentaDestino) {
+                Alert.alert('Error', 'La cuenta origen y destino deben ser diferentes');
+                return;
+            }
+
+            // Realizar la transferencia
+            try {
+                const transferencia = {
+                    monto: parseFloat(monto),
+                    cuentaOrigen: cuenta,
+                    cuentaDestino: cuentaDestino,
+                    descripcion: descripcion,
+                    fecha_transaccion: fechaTransaccion.toISOString().split('T')[0],
+                    notas: notas
+                };
+
+                const resultado = await realizarTransferencia(transferencia, usuarioEmail);
+
+                if (resultado.success) {
+                    Alert.alert(
+                        '✅ Transferencia Exitosa',
+                        `Se transfirieron $${parseFloat(monto).toFixed(2)} de ${cuenta} a ${cuentaDestino}\n\n` +
+                        `💳 ${cuenta}: $${resultado.saldoOrigen.toFixed(2)}\n` +
+                        `💳 ${cuentaDestino}: $${resultado.saldoDestino.toFixed(2)}`
+                    );
+                    setModalAgregar(false);
+                    resetearFormulario();
+
+                    if (onTransaccionGuardada) {
+                        onTransaccionGuardada();
+                    }
+                } else {
+                    Alert.alert('Error', resultado.error || 'No se pudo realizar la transferencia');
+                }
+            } catch (error) {
+                Alert.alert('Error', 'No se pudo realizar la transferencia: ' + error.message);
+            }
+            return; // Salir aquí para transferencias
+        }
+
+        // Para otros tipos de transacción (no transferencia)
         if (!cuenta) {
             Alert.alert('Error', 'Selecciona una cuenta');
             return;
@@ -197,14 +276,10 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
         // Determinar el tipo correcto según la selección
         let tipoFinal = tipoTransaccion;
 
-        // Mapear tipos de transacción
-        if (tipoTransaccion === 'Gasto' || tipoTransaccion === 'Pago') {
-            tipoFinal = 'Gasto'; // Ambos son egresos
-        } else if (tipoTransaccion === 'Ingreso' || tipoTransaccion === 'Reembolso') {
-            tipoFinal = 'Ingreso'; // Ambos son ingresos
-        } else if (tipoTransaccion === 'Transferencia') {
-            tipoFinal = 'Transferencia';
-        }
+        // Mapear tipos de transacción - mantener tipos específicos
+        // Gasto y Pago se guardan como están (son egresos)
+        // Ingreso y Reembolso se guardan como están (son ingresos)
+        // El tipo se mantiene para poder distinguirlos en la UI
 
         const nuevaTransaccion = {
             tipo: tipoFinal,
@@ -218,13 +293,54 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
         };
 
         try {
-            console.log('🚀 Iniciando guardado de transacción...', nuevaTransaccion);
-
             // Guardar transacción Y actualizar saldo de cuenta automáticamente
             const resultado = await guardarTransaccion(nuevaTransaccion, usuarioEmail);
 
             if (resultado.success) {
-                console.log('✅ Transacción guardada exitosamente');
+                // Verificar si se excedió el presupuesto (solo para gastos y pagos)
+                if (tipoTransaccion === 'Gasto' || tipoTransaccion === 'Pago') {
+                    const categoriaUsada = categoria || 'Otros';
+                    const mesActual = (fechaTransaccion.getMonth() + 1).toString();
+                    const anioActual = fechaTransaccion.getFullYear().toString();
+
+                    try {
+                        const verificacion = await verificarPresupuestoExcedido(
+                            usuarioEmail,
+                            categoriaUsada,
+                            mesActual,
+                            anioActual
+                        );
+
+                        if (verificacion.excedido) {
+                            // Mostrar alerta de presupuesto excedido
+                            setTimeout(() => {
+                                Alert.alert(
+                                    '⚠️ ¡Presupuesto Excedido!',
+                                    `Has superado el límite de ${categoriaUsada}.\n\n` +
+                                    `💰 Límite: $${verificacion.limite.toFixed(2)}\n` +
+                                    `💸 Gastado: $${verificacion.gastado.toFixed(2)}\n` +
+                                    `📊 Excedido por: $${verificacion.diferencia.toFixed(2)}`,
+                                    [
+                                        {
+                                            text: 'Entendido',
+                                            style: 'cancel'
+                                        },
+                                        {
+                                            text: 'Ver Presupuestos',
+                                            onPress: () => {
+                                                // Navegar a la pantalla de Presupuestos
+                                                navigation.navigate('PresupuestosMensuales');
+                                            }
+                                        }
+                                    ],
+                                    { cancelable: true }
+                                );
+                            }, 500); // Pequeño delay para que no se solapen las alertas
+                        }
+                    } catch (error) {
+                        // Error silencioso al verificar presupuesto
+                    }
+                }
 
                 // Mensaje personalizado según tipo
                 let mensaje = '';
@@ -516,7 +632,6 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                                     placeholder="$0.00"
                                     placeholderTextColor="#CCC"
                                 />
-                                <Ionicons name="water" size={32} color="#4A8FE7" style={styles.montoIcono} />
                             </View>
                         </View>
 
@@ -554,39 +669,65 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
 
                         <View style={styles.separadorCampo} />
 
-                        {/* Cuenta - ACTUALIZADO para abrir modal */}
+                        {/* Cuenta Origen - Para transferencias muestra "Cuenta Origen" */}
                         <TouchableOpacity
                             style={styles.campoSection}
                             onPress={abrirModalCuentas}
                         >
-                            <Text style={styles.campoLabel}>Cuenta</Text>
+                            <Text style={styles.campoLabel}>
+                                {tipoTransaccion === 'Transferencia' ? 'Cuenta Origen' : 'Cuenta'}
+                            </Text>
                             <View style={styles.campoInputContainer}>
                                 <Ionicons name="wallet-outline" size={20} color="#666" />
                                 <Text style={styles.campoTexto}>
-                                    {cuenta || 'Selecciona cuenta'}
+                                    {cuenta || (tipoTransaccion === 'Transferencia' ? 'Selecciona cuenta origen' : 'Selecciona cuenta')}
                                 </Text>
                                 <Ionicons name="chevron-forward-outline" size={20} color="#666" />
                             </View>
                         </TouchableOpacity>
 
+                        {/* Cuenta Destino - Solo para transferencias */}
+                        {tipoTransaccion === 'Transferencia' && (
+                            <>
+                                <View style={styles.separadorCampo} />
+                                <TouchableOpacity
+                                    style={styles.campoSection}
+                                    onPress={abrirModalCuentasDestino}
+                                >
+                                    <Text style={styles.campoLabel}>Cuenta Destino</Text>
+                                    <View style={styles.campoInputContainer}>
+                                        <Ionicons name="arrow-forward-circle-outline" size={20} color="#666" />
+                                        <Text style={styles.campoTexto}>
+                                            {cuentaDestino || 'Selecciona cuenta destino'}
+                                        </Text>
+                                        <Ionicons name="chevron-forward-outline" size={20} color="#666" />
+                                    </View>
+                                </TouchableOpacity>
+                            </>
+                        )}
+
                         <View style={styles.separadorCampo} />
 
-                        {/* Categoría - REEMPLAZADO por TouchableOpacity para abrir modal */}
-                        <TouchableOpacity
-                            style={styles.campoSection}
-                            onPress={abrirModalCategorias}
-                        >
-                            <Text style={styles.campoLabel}>Categoria</Text>
-                            <View style={styles.campoInputContainer}>
-                                <Ionicons name="apps-outline" size={20} color="#666" />
-                                <Text style={styles.campoTexto}>
-                                    {categoria || 'Selecciona categoría'}
-                                </Text>
-                                <Ionicons name="chevron-forward-outline" size={20} color="#666" />
-                            </View>
-                        </TouchableOpacity>
+                        {/* Categoría - Solo mostrar si NO es transferencia */}
+                        {tipoTransaccion !== 'Transferencia' && (
+                            <>
+                                <TouchableOpacity
+                                    style={styles.campoSection}
+                                    onPress={abrirModalCategorias}
+                                >
+                                    <Text style={styles.campoLabel}>Categoria</Text>
+                                    <View style={styles.campoInputContainer}>
+                                        <Ionicons name="apps-outline" size={20} color="#666" />
+                                        <Text style={styles.campoTexto}>
+                                            {categoria || 'Selecciona categoría'}
+                                        </Text>
+                                        <Ionicons name="chevron-forward-outline" size={20} color="#666" />
+                                    </View>
+                                </TouchableOpacity>
 
-                        <View style={styles.separadorCampo} />
+                                <View style={styles.separadorCampo} />
+                            </>
+                        )}
 
                         {/* Notas */}
                         <View style={styles.campoSection}>
@@ -729,6 +870,80 @@ const BotonAgregarTransaccion = ({ onTransaccionGuardada }) => {
                                             )}
                                         </View>
                                     ))
+                                )}
+                            </ScrollView>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* Modal de Selección de Cuenta Destino (Para Transferencias) */}
+            <Modal
+                visible={modalCuentasDestino}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={cerrarModalCuentasDestino}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={cerrarModalCuentasDestino}
+                >
+                    <View style={styles.modalTiposContainer}>
+                        <TouchableOpacity activeOpacity={1}>
+                            <View style={styles.modalHandle} />
+                            <Text style={styles.modalTiposTitulo}>Seleccionar Cuenta Destino</Text>
+
+                            <ScrollView>
+                                {cuentas.length === 0 ? (
+                                    <View style={styles.emptyCuentas}>
+                                        <Ionicons name="wallet-outline" size={48} color="#CCC" />
+                                        <Text style={styles.emptyCuentasText}>No hay cuentas registradas</Text>
+                                        <Text style={styles.emptyCuentasSubtext}>
+                                            Ve a la sección de Cuentas para agregar una
+                                        </Text>
+                                    </View>
+                                ) : (
+                                    cuentas
+                                        .filter(c => c.nombre !== cuenta) // Filtrar la cuenta origen
+                                        .map((cuentaItem, index, arr) => (
+                                            <View key={cuentaItem.id}>
+                                                <TouchableOpacity
+                                                    style={styles.tipoItem}
+                                                    onPress={() => seleccionarCuentaDestino(cuentaItem.nombre)}
+                                                >
+                                                    <View style={styles.tipoIcono}>
+                                                        <Ionicons name={cuentaItem.icono || 'wallet'} size={24} color="#000" />
+                                                    </View>
+                                                    <View style={styles.tipoTextos}>
+                                                        <Text style={[
+                                                            styles.tipoTitulo,
+                                                            cuentaItem.nombre === cuentaDestino && { color: '#4A8FE7' }
+                                                        ]}>
+                                                            {cuentaItem.nombre}
+                                                        </Text>
+                                                        <Text style={styles.tipoDescripcion}>
+                                                            Saldo: ${cuentaItem.saldo.toFixed(2)}
+                                                        </Text>
+                                                    </View>
+                                                    {cuentaItem.nombre === cuentaDestino && (
+                                                        <Ionicons name="checkmark" size={24} color="#4A8FE7" />
+                                                    )}
+                                                </TouchableOpacity>
+                                                {index < arr.length - 1 && (
+                                                    <View style={styles.separador} />
+                                                )}
+                                            </View>
+                                        ))
+                                )}
+                                {cuentas.length > 0 && cuentas.filter(c => c.nombre !== cuenta).length === 0 && (
+                                    <View style={styles.emptyCuentas}>
+                                        <Ionicons name="alert-circle-outline" size={48} color="#F59E0B" />
+                                        <Text style={styles.emptyCuentasText}>Selecciona primero la cuenta origen</Text>
+                                        <Text style={styles.emptyCuentasSubtext}>
+                                            La cuenta destino debe ser diferente a la cuenta origen
+                                        </Text>
+                                    </View>
                                 )}
                             </ScrollView>
                         </TouchableOpacity>
@@ -899,8 +1114,9 @@ const styles = StyleSheet.create({
         fontSize: 48,
         fontWeight: 'bold',
         color: '#000',
-        textAlign: 'center',
-        minWidth: 200,
+        textAlign: 'left',
+        minWidth: 150,
+        paddingHorizontal: 0,
     },
     montoIcono: {
         marginLeft: 10,
@@ -918,20 +1134,21 @@ const styles = StyleSheet.create({
     campoInputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        // Asegura que el texto y el chevron estén bien alineados
-        justifyContent: 'space-between',
     },
     campoInput: {
         flex: 1,
         fontSize: 16,
         color: '#000',
         marginLeft: 12,
+        textAlign: 'left',
+        paddingVertical: 0,
     },
     campoTexto: {
         flex: 1,
         fontSize: 16,
         color: '#000',
         marginLeft: 12,
+        textAlign: 'left',
     },
     separadorCampo: {
         height: 1,
